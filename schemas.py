@@ -1,7 +1,7 @@
 """
 Contrato de datos del Smart Flight Assistant.
 
-Traduce a Pydantic V2 el System Prompt y el contrato de entrada de la API:
+Traduce a Pydantic el System Prompt y el contrato de entrada de la API:
 una sola consulta en lenguaje natural (texto_libre) se convierte en un objeto
 ExtraccionVuelo que cubre cuatro intenciones posibles:
 
@@ -65,7 +65,8 @@ def _normalizar_fecha_sin_anio(texto: str, hoy: date) -> str:
         mes = int(match.group(1))
         dia = match.group(2)
     else:
-        mes = next((numero for nombre, numero in _MESES_ES.items() if nombre in v), None)
+        mes = next(
+            (numero for nombre, numero in _MESES_ES.items() if nombre in v), None)
         dia_match = re.search(r"\b(\d{1,2})\b", v) if mes else None
         dia = dia_match.group(1) if dia_match else None
 
@@ -78,6 +79,7 @@ def _normalizar_fecha_sin_anio(texto: str, hoy: date) -> str:
     if dia:
         return f"{anio}-{mes:02d}-{int(dia):02d}"
     return f"{anio}-{mes:02d}"
+
 
 # Campos de parámetros que deben quedar en None cuando la intención
 # detectada es "fuera_de_alcance": el LLM interpreta el lenguaje, pero nunca
@@ -106,10 +108,14 @@ class SolicitudEntrada(BaseModel):
     cuántos días faltan hasta la fecha de viaje.
     """
 
-    canal: str = Field(description="Canal de origen del mensaje, ej. 'whatsapp', 'cli'")
-    texto_libre: str = Field(description="Texto crudo en lenguaje natural ingresado por el usuario")
-    adjuntos: list[str] = Field(default_factory=list, description="Adjuntos del mensaje (vacío por ahora)")
-    timestamp: datetime = Field(description="Momento real de la interacción del usuario")
+    canal: str = Field(
+        description="Canal de origen del mensaje, ej. 'whatsapp', 'cli'")
+    texto_libre: str = Field(
+        description="Texto crudo en lenguaje natural ingresado por el usuario")
+    adjuntos: list[str] = Field(
+        default_factory=list, description="Adjuntos del mensaje (vacío por ahora)")
+    timestamp: datetime = Field(
+        description="Momento real de la interacción del usuario")
 
 
 class ExtraccionVuelo(BaseModel):
@@ -124,23 +130,31 @@ class ExtraccionVuelo(BaseModel):
     intencion: Intencion
 
     # --- Parámetros de buscar_vuelos / recomendar_compra ---
-    origen: Optional[str] = Field(default=None, description="Código IATA de origen, ej. MAD")
-    destino: Optional[str] = Field(default=None, description="Código IATA de destino, ej. BER")
-    fecha_desde: Optional[str] = Field(default=None, description="Inicio de la ventana de viaje")
-    fecha_hasta: Optional[str] = Field(default=None, description="Fin de la ventana de viaje")
+    origen: Optional[str] = Field(
+        default=None, description="Código IATA de origen, ej. MAD")
+    destino: Optional[str] = Field(
+        default=None, description="Código IATA de destino, ej. BER")
+    fecha_desde: Optional[str] = Field(
+        default=None, description="Inicio de la ventana de viaje")
+    fecha_hasta: Optional[str] = Field(
+        default=None, description="Fin de la ventana de viaje")
     fecha_viaje_aprox: Optional[str] = Field(
         default=None, description="Fecha aproximada de viaje (usada en recomendar_compra)"
     )
-    escalas_max: Optional[int] = Field(default=None, description="Escalas máximas toleradas (0-5)")
+    escalas_max: Optional[int] = Field(
+        default=None, description="Escalas máximas toleradas (0-5)")
     # Nota: el rango (gt=0) se aplica en un @field_validator, no como constraint
     # declarativa (Field(gt=0)), porque el SDK de Gemini traduce el schema de
     # Pydantic a su propio tipo `Schema` y ese tipo no soporta la keyword
     # "exclusiveMinimum" que genera `gt=0` — rompe response_schema en tiempo real.
-    presupuesto_max: Optional[float] = Field(default=None, description="Presupuesto máximo en euros")
+    presupuesto_max: Optional[float] = Field(
+        default=None, description="Presupuesto máximo en euros")
 
     # --- Parámetros de comparar_opciones ---
-    opcion_a: Optional[str] = Field(default=None, description="Descripción/filtros del vuelo A")
-    opcion_b: Optional[str] = Field(default=None, description="Descripción/filtros del vuelo B")
+    opcion_a: Optional[str] = Field(
+        default=None, description="Descripción/filtros del vuelo A")
+    opcion_b: Optional[str] = Field(
+        default=None, description="Descripción/filtros del vuelo B")
 
     # --- Motivo interno cuando la intención es fuera_de_alcance ---
     motivo_rechazo: Optional[str] = Field(
@@ -182,7 +196,8 @@ class ExtraccionVuelo(BaseModel):
         if v is None:
             return v
         if not (0 <= v <= 5):
-            raise ValueError(f"escalas_max fuera de rango: {v}. Debe estar entre 0 y 5.")
+            raise ValueError(
+                f"escalas_max fuera de rango: {v}. Debe estar entre 0 y 5.")
         return v
 
     @field_validator("presupuesto_max")
@@ -192,7 +207,8 @@ class ExtraccionVuelo(BaseModel):
         if v is None:
             return v
         if v <= 0:
-            raise ValueError(f"presupuesto_max debe ser positivo, se recibió: {v}")
+            raise ValueError(
+                f"presupuesto_max debe ser positivo, se recibió: {v}")
         return v
 
     @model_validator(mode="after")
@@ -204,7 +220,8 @@ class ExtraccionVuelo(BaseModel):
         parámetros de extracción en null"): el LLM propone, el código dispone.
         """
         if self.intencion == "fuera_de_alcance":
-            cargados = [c for c in _CAMPOS_DE_EXTRACCION if getattr(self, c) is not None]
+            cargados = [c for c in _CAMPOS_DE_EXTRACCION if getattr(
+                self, c) is not None]
             if cargados:
                 raise ValueError(
                     "Intención 'fuera_de_alcance' no puede traer parámetros de extracción "
