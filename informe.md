@@ -289,4 +289,4 @@ Código completo: [`app.py`](app.py).
 
 ### C.3 — Lote de prueba y tabla de resultados
 
-Código completo: [`resulados_lote.py`](resulados_lote.py).
+Código completo: [`resulados_lote.md`](resulados_lote.md).
