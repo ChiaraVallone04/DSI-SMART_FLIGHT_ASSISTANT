@@ -285,16 +285,6 @@ Código completo: [`schemas.py`](schemas.py).
 
 ### C.2 — Script con API real y Structured Outputs
 
-`app.py` toma un `texto_libre` de dominio, lo manda a la API de Gemini (`google-genai`) y valida la respuesta contra `ExtraccionVuelo`.
-
-- La clave sale de `.env` (`GEMINI_API_KEY`, vía `load_dotenv()`); si falta, el script corta con un error. Se entrega [`.env.example`](.env.example) sin valores.
-- El pedido a Gemini usa `response_schema=ExtraccionVuelo` (Structured Outputs).
-- La respuesta se revalida con `model_validate_json(..., context={"hoy": solicitud.timestamp.date()})` en lugar de confiar en `response.parsed`, así corren los validadores del punto C.1 y `normalizar_anio_de_fecha` usa el `timestamp` real de la consulta.
-- Errores de red, de la API y de validación (`ValidationError`) se atrapan por separado, cada uno con su propio mensaje.
-- Si todo valida, imprime los campos ya normalizados de `resultado.model_dump()`.
-
-El System Prompt sigue la técnica Chain-of-Thought de B.5 (CoT, razona antes de fijar `intencion`) y repite la regla de `fuera_de_alcance` de B.3 (`aplicar_regla_de_oro_fuera_de_alcance`).
-
 Código completo: [`app.py`](app.py) · Variables de entorno: [`.env.example`](.env.example).
 
 ### C.3 — Lote de prueba y tabla de resultados
