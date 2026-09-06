@@ -94,6 +94,7 @@ B.3 — Matriz de Mapeo de Intenciones
 En ninguna fila el LLM decide un precio, un umbral de riesgo o si una escala "vale la pena", eso lo calcula siempre el backend sobre las filas reales del CSV. El LLM extrae parámetros de texto libre (fila 1-3) o los redacta en lenguaje natural a partir de números que ya vinieron del dato (fila 2-3). La única fila donde el LLM tiene un rol más fuerte de "decisión" es fuera_de_alcance, y ahí precisamente la acción de backend es la más restringida de todas (no hacer nada más que rechazar) es la manera de mantener el riesgo ALTO acotado.
 
 
+B.4 — Decisión técnica: ¿Reglas o LLM?
 | Componente del sistema | Naturaleza | Justificación |
 | :--- | :--- | :--- |
 | Extracción de entidades (origen, destino, fechas, escalas, presupuesto) | **Probabilística (LLM)** | El usuario escribe como quiere ("a mediados de mes", "sin escalas si se puede"). No hay forma de cubrir la variedad del lenguaje natural con reglas fijas (if/else); hace falta la comprensión semántica del LLM. |
@@ -105,3 +106,23 @@ En ninguna fila el LLM decide un precio, un umbral de riesgo o si una escala "va
 | Detección de consultas fuera de alcance / seguridad | **Híbrido (LLM + Validación por código)** | Identificar si un mensaje es fuera de tema o un intento de manipulación requiere análisis del LLM. Sin embargo, la decisión final es por código: si el JSON no devuelve una intención válida aprobada por Pydantic, el sistema rechaza la consulta por defecto. |
 
 **Síntesis:** El patrón en las cuatro intenciones es siempre el mismo: el LLM se encarga de interpretar el mensaje de entrada y redactar la respuesta final, mientras que el código y Pandas/SQL son la única autoridad para filtrar, calcular y consultar precios. Ningún cálculo depende de lo que el LLM "recuerde" de sus datos de entrenamiento, ni el LLM decide reglas de negocio por su cuenta.
+
+
+B.5 — Los tres artefactos de la especificación
+**Endpoint:** `POST /api/v1/flights`
+```json
+{
+  "canal": "whatsapp",
+  "texto_libre": "Quiero volar de Madrid a Berlín en octubre, sin escalas si se puede, no quiero gastar más de 200 euros",
+  "adjuntos": [],
+  "timestamp": "2026-09-05T00:43:00-03:00"
+}
+```
+
+**canal**: identifica la plataforma desde la que escribe el usuario (por ejemplo, WhatsApp o Web). Permite al backend ajustar el formato de salida y controlar el límite de tokens en la respuesta.
+
+**texto_libre**: contiene la cadena de texto cruda y desestructurada que ingresa el usuario en lenguaje natural. Representa el insumo probabilístico principal que el LLM procesará para decodificar las intenciones semánticas y extraer las variables clave.
+
+**adjuntos**: permite contemplar futuras integraciones en la base de conocimiento del agente, como la carga de imágenes de itinerarios anteriores o PDFs de cotizaciones turísticas externas para automatizar la extracción de datos de viaje.
+
+**timestamp**: registra de manera determinista el momento exacto en que se realiza la consulta. Es importante para que el backend calcule internamente en Python la variable discreta days_left de nuestro dataset, restando la fecha de interacción a la fecha aproximada de vuelo. 
