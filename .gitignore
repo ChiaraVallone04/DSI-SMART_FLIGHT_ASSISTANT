@@ -1,0 +1,37 @@
+# Environment variables and secret keys (NUNCA subir a GitHub)
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments (Virtual Environments)
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# IDE / Editor configuration
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Data & Database files (evita subir archivos pesados o locales no deseados)
+*.sqlite3
+*.log
+
+# Byte-compiled / installer cache
+*.egg-info/
+.installed.cfg
+*.egg
