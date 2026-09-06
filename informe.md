@@ -277,3 +277,22 @@ analizando paso a paso:
 - **Obsolescencia Técnica:** El backend y el dataset funcionan impecable técnicamente, pero los datos que devuelven son inútiles para el usuario porque el mercado de aerolíneas cambió radicalmente (por inflación, cambios de ruta o estacionalidad).
 - **Alucinación Temporal:** Evitan la alucinación probabilística del LLM gracias a la frontera híbrida, pero caen en una "alucinación temporal" del dataset. El sistema recomendará tarifas y vuelos inexistentes, lo que destruye la confianza del cliente y hace colapsar la utilidad de *Smart Flight Assistant* en el mundo real.
 
+## Parte C — Pipeline Funcional Validado (Clase 3)
+
+### C.1 — `schemas.py`: el contrato en código
+
+`schemas.py` traduce a Pydantic V2 el contrato de datos y el System Prompt (B.5) en dos modelos:
+
+- **`SolicitudEntrada`**: el contrato de entrada de la API (B.5a) — `canal`, `texto_libre`, `adjuntos`, `timestamp`. Solo `texto_libre` se le manda al LLM; `timestamp` se usa como ancla determinista para resolver el año de las fechas relativas.
+- **`ExtraccionVuelo`**: la salida estructurada del LLM, con `intencion` como `Literal` sobre las cuatro intenciones de B.3 (`buscar_vuelos`, `recomendar_compra`, `comparar_opciones`, `fuera_de_alcance`).
+
+Validadores con lógica real, no solo tipado:
+
+- `normalizar_y_validar_iata` — limpia y valida que `origen`/`destino` sean códigos IATA de 3 letras.
+- `normalizar_anio_de_fecha` — nunca confía en un año que el LLM haya podido inventar: recalcula el año en código a partir del `timestamp` real de la consulta (el mismo dato que B.5a ya justificaba para calcular `days_left`).
+- `validar_rango_escalas` — rechaza `escalas_max` fuera de 0-5 (el rango real del dataset).
+- `validar_presupuesto_positivo` — rechaza un presupuesto máximo que no sea positivo.
+- `aplicar_regla_de_oro_fuera_de_alcance` (`@model_validator`) — blinda en código la regla de B.3: si la intención es `fuera_de_alcance`, ningún parámetro de extracción puede venir cargado.
+
+Código completo: [`schemas.py`](schemas.py).
+
