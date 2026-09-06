@@ -281,18 +281,12 @@ analizando paso a paso:
 
 ### C.1 — `schemas.py`: el contrato en código
 
-`schemas.py` traduce a Pydantic V2 el contrato de datos y el System Prompt (B.5) en dos modelos:
-
-- **`SolicitudEntrada`**: el contrato de entrada de la API (B.5a) — `canal`, `texto_libre`, `adjuntos`, `timestamp`. Solo `texto_libre` se le manda al LLM; `timestamp` se usa como ancla determinista para resolver el año de las fechas relativas.
-- **`ExtraccionVuelo`**: la salida estructurada del LLM, con `intencion` como `Literal` sobre las cuatro intenciones de B.3 (`buscar_vuelos`, `recomendar_compra`, `comparar_opciones`, `fuera_de_alcance`).
-
-Validadores con lógica real, no solo tipado:
-
-- `normalizar_y_validar_iata` — limpia y valida que `origen`/`destino` sean códigos IATA de 3 letras.
-- `normalizar_anio_de_fecha` — nunca confía en un año que el LLM haya podido inventar: recalcula el año en código a partir del `timestamp` real de la consulta (el mismo dato que B.5a ya justificaba para calcular `days_left`).
-- `validar_rango_escalas` — rechaza `escalas_max` fuera de 0-5 (el rango real del dataset).
-- `validar_presupuesto_positivo` — rechaza un presupuesto máximo que no sea positivo.
-- `aplicar_regla_de_oro_fuera_de_alcance` (`@model_validator`) — blinda en código la regla de B.3: si la intención es `fuera_de_alcance`, ningún parámetro de extracción puede venir cargado.
-
 Código completo: [`schemas.py`](schemas.py).
 
+### C.2 — Script con API real y Structured Outputs
+
+Código completo: [`app.py`](app.py).
+
+### C.3 — Lote de prueba y tabla de resultados
+
+Código completo: [`resulados_lote.py`](resulados_lote.py).
