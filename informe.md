@@ -190,4 +190,43 @@ CREATE TABLE interacciones_agente (
 ```
 
 
+### B.6 — Flujo de valor y flujo del sistema
+
+**Flujo de valor (negocio):**
+
+```
+[Necesidad del cliente] → sufre fatiga por navegar múltiples webs y comparar manualmente
+        ▼
+[Mensaje conversacional] → el cliente expresa lo que quiere en lenguaje natural
+        ▼
+[Extracción semántica] → el LLM traduce el caos lingüístico y extrae los filtros objetivos
+        ▼
+[Filtro determinista SQL] → el backend consulta en milisegundos la base de datos real
+        ▼
+[Propuesta seleccionada] → el sistema filtra y elige el vuelo óptimo del catálogo
+        ▼
+[Ahorro de tiempo y dinero] → el usuario toma una decisión informada en segundos
+        ▼
+[Valor: decisión de viaje rápida, verídica y libre de frustraciones]
+```
+
+**Flujo del sistema (técnico):**
+
+```
+[Cliente: consulta cruda por WhatsApp]
+        ▼
+[POST /api/v1/flights]                     (Sensor: recepción del estímulo de entrada)
+        ▼
+[LLM] Extrae intención y parámetros (CoT) → JSON candidato
+        ▼
+[Código / Pydantic] Valida el JSON → rechaza y guarda el error si falla
+        ▼
+[SQL] Consulta vuelos reales en la tabla 'vuelos'  (autoridad de verdad)
+        ▼
+[Log transaccional] Registra la operación en 'interacciones_agente'
+        ▼
+[LLM] Redacta la respuesta final humanizada con los datos duros recuperados
+        ▼
+[Cliente: propuesta de viaje clara y verídica en su chat]
+```
 
