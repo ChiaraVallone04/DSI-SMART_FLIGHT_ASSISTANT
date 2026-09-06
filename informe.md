@@ -83,7 +83,7 @@ También existe una **latencia humana**: para saber si conviene comprar ya o es
 **Lo que el sistema le saca de encima:** no tiene que saber qué preguntar en SQL ni abrir múltiples pestañas, describe lo que quiere en lenguaje natural (origen, destino, ventana de fechas, cuántas escalas tolera, presupuesto aproximado) y el sistema traduce eso a una consulta real sobre el dataset, devolviendo una recomendación fundamentada en datos concretos en vez de en la memoria probabilística del LLM.
 
 
-B.3 — Matriz de Mapeo de Intenciones
+### B.3 — Matriz de Mapeo de Intenciones
 | Entrada del usuario (caos) | Intención (LLM) | Parámetros (LLM) | Acción de backend (determinista) | Riesgo |
 | :--- | :--- | :--- | :--- | :--- |
 | "Quiero volar de Madrid a Berlín en octubre, sin escalas si se puede, no quiero gastar más de 200 euros" | buscar_vuelos | origen, destino, fecha_desde, fecha_hasta, escalas_max, presupuesto_max | SELECT sobre el dataset filtrando por source_airport, destination_airport, rango de departure_time, stops <= escalas_max y price <= presupuesto_max, ordenado por precio. El LLM solo extrae los filtros; no decide qué vuelos calificar. | **BAJO** — Operación de solo lectura, sin escritura ni consecuencia financiera directa (informa, no ejecuta ninguna compra). |
@@ -108,7 +108,8 @@ B.4 — Decisión técnica: ¿Reglas o LLM?
 **Síntesis:** El patrón en las cuatro intenciones es siempre el mismo: el LLM se encarga de interpretar el mensaje de entrada y redactar la respuesta final, mientras que el código y Pandas/SQL son la única autoridad para filtrar, calcular y consultar precios. Ningún cálculo depende de lo que el LLM "recuerde" de sus datos de entrenamiento, ni el LLM decide reglas de negocio por su cuenta.
 
 
-B.5 — Los tres artefactos de la especificación
+#### B.5 — Los tres artefactos de la especificación
+#### a) Contrato de datos (JSON de la API)
 **Endpoint:** `POST /api/v1/flights`
 ```json
 {
@@ -126,3 +127,67 @@ B.5 — Los tres artefactos de la especificación
 **adjuntos**: permite contemplar futuras integraciones en la base de conocimiento del agente, como la carga de imágenes de itinerarios anteriores o PDFs de cotizaciones turísticas externas para automatizar la extracción de datos de viaje.
 
 **timestamp**: registra de manera determinista el momento exacto en que se realiza la consulta. Es importante para que el backend calcule internamente en Python la variable discreta days_left de nuestro dataset, restando la fecha de interacción a la fecha aproximada de vuelo. 
+
+
+### b) Esquema de la base de datos (SQL)
+
+```sql
+-- ==============================================================================
+-- TABLA: vuelos (Datos históricos del dataset)
+--
+-- Mapea directo las 20 columnas del dataset.
+-- No agregamos una clave autoincremental (como id_vuelo) porque no existe en el 
+-- CSV original.
+--
+-- Para buscar o identificar un vuelo de manera única, usamos la combinación 
+-- de las columnas 'airline', 'flight' y 'departure_time'.
+-- ==============================================================================
+CREATE TABLE vuelos (
+    airline                   VARCHAR(100) NOT NULL,
+    flight                    VARCHAR(50) NOT NULL,
+    source_city               VARCHAR(255) NOT NULL,
+    source_country            VARCHAR(100) NOT NULL,
+    departure_time            TIMESTAMP NOT NULL,
+    stops                     INT NOT NULL,
+    arrival_time              TIMESTAMP NOT NULL,
+    destination_city          VARCHAR(255) NOT NULL,
+    destination_country       VARCHAR(100) NOT NULL,
+    class                     VARCHAR(50) NOT NULL,
+    price                     DECIMAL(10, 2) NOT NULL,
+    days_left                 INT NOT NULL,
+    duration                  VARCHAR(50) NOT NULL,
+    source_airport            VARCHAR(10) NOT NULL,
+    destination_airport       VARCHAR(10) NOT NULL,
+    scraped_at                TIMESTAMP NOT NULL,
+    departure_daypart         VARCHAR(50) NOT NULL,
+    arrival_daypart           VARCHAR(50) NOT NULL,
+    departure_day_of_week     VARCHAR(50) NOT NULL,
+    arrival_day_of_week       VARCHAR(50) NOT NULL,
+    PRIMARY KEY (airline, flight, departure_time)
+);
+
+-- ==============================================================================
+-- TABLA: interacciones_agente (Log de chats del asistente)
+--
+-- Registra cada mensaje recibido. Nos sirve para auditar al LLM:
+-- ver qué intención interpretó, qué parámetros extrajo del JSON y si
+-- el payload pasó la validación de Pydantic (valido_pydantic) o tiró error.
+--
+-- Acá sí usamos id_interaccion autoincremental porque es una tabla transaccional
+-- del sistema.
+-- ==============================================================================
+CREATE TABLE interacciones_agente (
+    id_interaccion            SERIAL PRIMARY KEY,
+    timestamp                 TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    canal                     VARCHAR(50) NOT NULL,
+    texto_libre               TEXT NOT NULL,
+    intencion_detectada       VARCHAR(50) NOT NULL,
+    parametros_extraidos      JSONB,
+    respuesta_sistema         TEXT NOT NULL,
+    valido_pydantic           BOOLEAN NOT NULL,
+    error_validacion          TEXT
+);
+```
+
+
+
