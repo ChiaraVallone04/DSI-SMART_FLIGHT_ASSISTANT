@@ -1,4 +1,4 @@
-# Environment variables and secret keys (NUNCA subir a GitHub)
+# Environment variables and secret keys
 .env
 .env.*
 !.env.example
@@ -27,7 +27,7 @@ venv.bak/
 *.swo
 .DS_Store
 
-# Data & Database files (evita subir archivos pesados o locales no deseados)
+# Data & Database files
 *.sqlite3
 *.log
 
