@@ -290,3 +290,17 @@ Código completo: [`app.py`](app.py) · Variables de entorno: [`.env.example`](.
 ### C.3 — Lote de prueba y tabla de resultados
 
 Código Pruebas: [`lote_pruebas.py`](lote_pruebas.py). · Resultado Pruebas: [`resultados_lote.md`](resultados_lote.md).
+
+### C.4 - Tecnica de prompting
+
+En el diseño de *Smart Flight Assistant*, implementamos un prompt de sistema regido por la técnica de **Chain-of-Thought (CoT / Cadena de Pensamiento)**. Esta elección responde tres fundamentos lógicos y arquitectónicos:
+
+- **Modelado del Ciclo del Agente (Fase de Razonamiento):** El ciclo operativo de la solución exige la transición secuencial entre **Percepción, Razonamiento y Acción**. CoT es la herramienta con la que formalizamos el **Razonamiento** de la IA. Al obligar al modelo a plasmar explícitamente su proceso de análisis en el campo `razonamiento` antes de estructurar el JSON, garantizamos que el agente evalúe activamente el contexto del usuario antes de proponer un comando técnico.
+
+- **Contención de Alucinaciones en la Frontera Híbrida:** Bajo el paradigma de **Frontera Híbrida**, el LLM propone un payload que el backend debe validar y ejecutar de manera rígida. Dado que los modelos probabilísticos seleccionan tokens secuencialmente según su probabilidad acumulada, forzar al LLM a escribir primero su lógica paso a paso condiciona matemáticamente la precisión de los parámetros subsiguientes. Esto reduce significativamente las alucinaciones semánticas y asegura que el JSON candidato cumpla de forma estricta con el contrato de datos requerido por **Pydantic**.
+
+- **Filtro de Seguridad Proactivo:** Para neutralizar intentos de manipulación de instrucciones (*prompt injection*) o secuestros semánticos, el análisis secuencial de CoT le permite al LLM categorizar la consulta del usuario según su nivel de riesgo e intención **antes** de procesar las variables. Esto funciona como un escudo defensivo probabilístico inicial que evita el consumo innecesario de recursos o la propagación de inputs maliciosos hacia nuestros actuadores y bases de datos.
+
+### C.5 - Cierre: donde se conecta 
+
+Este script implementa solo el primer tramo del flujo de *Smart Flight Assistant* de B.6: `[POST /api/v1/flights] → [LLM extrae intención y parámetros] → [Código/Pydantic valida el JSON]`, se corta ahí. Todavía no llega a `[SQL Consulta vuelos reales, no carga y left]`, y no redacta la respuesta final. Le falta la **Base de Conocimiento**. Hoy el JSON validado no se cruza contra ningún dato real (ni la tabla SQL ni el dataset están conectados), así que el sistema queda con Sensores y Razonamiento pero sin la autoridad de datos que evite la alucinación de A.2.
