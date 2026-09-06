@@ -35,6 +35,7 @@ Estos errores se deben a que no tiene acceso a los datos reales.
 | **E**nvironment<br>*(Entorno)* | Todo lo que rodea al agente y con lo que interactúa. | • Base de datos relacional de vuelos (europe_flights_google_prices.csv).<br>• Interfaz de usuario (chat / consola).<br>• API de LLM (para el parseo estructurado). |
 | **A**ctuators<br>*(Actuadores)* | Los medios por los cuales el agente ejecuta acciones en el entorno. | • Consultas a la base de datos (SQL / Pandas).<br>• Respuestas de texto para el usuario.<br>• Estructura JSON generada con Pydantic. |
 | **S**ensors<br>*(Sensores)* | Los medios por los cuales el agente percibe la información del entorno. | • Prompt / mensaje de texto ingresado por el usuario.<br>• Tablas y filas devueltas por la base de datos tras la consulta. |
+| **Base de Conocimiento** | Qué sabe el sistema. | El dataset histórico de vuelos (CSV → tabla SQL `vuelos`). Todavía sin base vectorial ni datos en vivo (ver C.5). |
 
 
 ### A.4 — Anatomía del token
