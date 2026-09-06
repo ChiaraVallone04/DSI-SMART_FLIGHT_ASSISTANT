@@ -9,8 +9,7 @@ ExtraccionVuelo que cubre cuatro intenciones posibles:
 
 El LLM solo puede devolver estos cuatro valores exactos para `intencion` (Literal).
 Cada intención usa un subconjunto distinto de los campos de parámetros; los que
-no aplican quedan en None (tal como exige el System Prompt: "si un dato no
-existe, asigná null").
+no aplican quedan en None (tal como exige el System Prompt).
 """
 
 import re
@@ -215,9 +214,7 @@ class ExtraccionVuelo(BaseModel):
     def aplicar_regla_de_oro_fuera_de_alcance(self) -> "ExtraccionVuelo":
         """Si la intención es fuera_de_alcance, ningún parámetro de extracción puede venir cargado.
 
-        Esto blinda en código la misma regla que ya le pedimos al LLM en el
-        System Prompt ("si la intención es fuera_de_alcance, colocá todos los
-        parámetros de extracción en null"): el LLM propone, el código dispone.
+        Esto blinda en código la misma regla que ya le pedimos al LLM en el System Prompt
         """
         if self.intencion == "fuera_de_alcance":
             cargados = [c for c in _CAMPOS_DE_EXTRACCION if getattr(
