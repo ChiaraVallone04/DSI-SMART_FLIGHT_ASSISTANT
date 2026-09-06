@@ -1,4 +1,4 @@
-# ARTE A: Diagnóstico y PEAS
+# PARTE A: Diagnóstico y PEAS
 
 ## 1. Definición del caso de dominio
 
