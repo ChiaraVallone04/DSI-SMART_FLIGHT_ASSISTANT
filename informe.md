@@ -289,4 +289,4 @@ Código completo: [`app.py`](app.py) · Variables de entorno: [`.env.example`](.
 
 ### C.3 — Lote de prueba y tabla de resultados
 
-Código completo: [`resultados_lote.md`](resultados_lote.md).
+Código Pruebas: [`lote_pruebas.py`](lote_pruebas.py). · Resultado Pruebas: [`resultados_lote.md`](resultados_lote.md).

@@ -123,8 +123,7 @@ def extraer_intencion(client: genai.Client, solicitud: SolicitudEntrada, modelo:
 
 
 def procesar(texto_libre: str, modelo: str | None = None) -> None:
-    modelo = modelo or os.getenv(
-        "GEMINI_MODEL_NAME", "gemini-flash-lite-latest")
+    modelo = modelo or os.getenv("GEMINI_MODEL_NAME")
 
     try:
         client = _crear_cliente()
