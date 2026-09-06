@@ -1,12 +1,12 @@
-**Dominio**
-Asistente Virtual Intuitivo de Planificación de Vuelos y Optimización de Itinerarios (*Smart Flight Assistant*).
+# Smart Flight Assistant — TP Integrador (Entrega 1)
 
-Integrantes:
-Joaquin Darquier
-Rodolfo Messina
-Jorge Alonso
-Gino Frigoni
-Nicolas Diego Diddi
-Franco Leonel Cristillo
-Chiara Vallone
+**Dominio:** Asistente Virtual Intuitivo de Planificación de Vuelos y Optimización de Itinerarios (*Smart Flight Assistant*).
 
+**Integrantes:**
+- Joaquin Darquier
+- Rodolfo Messina
+- Jorge Alonso
+- Gino Frigoni
+- Nicolas Diego Diddi
+- Franco Leonel Cristillo
+- Chiara Vallone
