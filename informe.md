@@ -266,7 +266,13 @@ analizando paso a paso:
 
 ### B.7 — Hipótesis más riesgosa
 
-> "La distribución de precios y disponibilidad del catálogo histórico offline de vuelos (2026) se mantiene lo suficientemente estable en el tiempo como para que las recomendaciones del asistente sigan siendo útiles y válidas para un usuario que busca viajar hoy."
+*"La distribución de precios y disponibilidad del catálogo histórico offline de vuelos (2026) se mantiene lo suficientemente estable en el tiempo como para que las recomendaciones del asistente sigan siendo útiles y válidas para un usuario que busca viajar hoy."*
 
-Si es verdadera, el catálogo offline funciona como una excelente aproximación de la realidad y el sistema cumple su objetivo sin pagar el costo de infraestructura de una API de precios en vivo. Si es falsa, el sistema cae en una "alucinación temporal" del dataset: recomienda tarifas y vuelos que ya no existen, destruyendo la confianza del usuario aunque el pipeline técnico funcione perfecto.
+**Hipótesis Verdadera**
+- **Éxito del Sistema:** El catálogo histórico offline funciona como una excelente aproximación de la realidad. Los patrones de precios y rutas persisten en el tiempo de manera consistente.
+- **Valor de Negocio:** Aunque *Smart Flight Assistant* no use una API en vivo, las recomendaciones del backend siguen siendo útiles y válidas para planificar un viaje real. El sistema cumple con su objetivo de brindar información confiable sin necesidad de pagar el costo de desarrollo e infraestructura de conectarse a sistemas en tiempo real.
+
+**Hipótesis Falsa**
+- **Obsolescencia Técnica:** El backend y el dataset funcionan impecable técnicamente, pero los datos que devuelven son inútiles para el usuario porque el mercado de aerolíneas cambió radicalmente (por inflación, cambios de ruta o estacionalidad).
+- **Alucinación Temporal:** Evitan la alucinación probabilística del LLM gracias a la frontera híbrida, pero caen en una "alucinación temporal" del dataset. El sistema recomendará tarifas y vuelos inexistentes, lo que destruye la confianza del cliente y hace colapsar la utilidad de *Smart Flight Assistant* en el mundo real.
 
