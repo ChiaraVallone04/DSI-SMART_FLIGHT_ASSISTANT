@@ -224,8 +224,6 @@ analizando paso a paso:
 """
 ```
 
-> **Nota sobre esta regla (agregada durante C.2/C.3):** en las primeras corridas reales contra Gemini, el modelo devolvía `fecha_desde: "2023-10-01"` para un input que solo decía "en octubre" — inventó un año que el usuario nunca mencionó, con total apariencia de certeza: un dato inventado con forma perfectamente creíble, indistinguible de uno real a simple vista. Como el LLM no tiene forma confiable de saber "qué día es hoy", esa regla de negocio (año actual, o el próximo si el mes ya pasó) se sacó del prompt y se hizo determinista en código, en un `@field_validator` de `schemas.py` (ver C.1 y la observación empírica en C.3). El "hoy" que usa ese cálculo no es el reloj del sistema en el momento de validar, sino el `timestamp` de `SolicitudEntrada` (el contrato de entrada de B.5a) — exactamente el mismo campo que B.5a ya justificaba como "indispensable para calcular `days_left`". Es el mismo dato del contrato, reutilizado para resolver un problema real distinto.
-
 ### B.6 — Flujo de valor y flujo del sistema
 
 **Flujo de valor (negocio):**
