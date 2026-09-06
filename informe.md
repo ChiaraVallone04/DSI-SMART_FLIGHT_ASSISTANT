@@ -95,7 +95,7 @@ También existe una **latencia humana**: para saber si conviene comprar ya o es
 En ninguna fila el LLM decide un precio, un umbral de riesgo o si una escala "vale la pena", eso lo calcula siempre el backend sobre las filas reales del CSV. El LLM extrae parámetros de texto libre (fila 1-3) o los redacta en lenguaje natural a partir de números que ya vinieron del dato (fila 2-3). La única fila donde el LLM tiene un rol más fuerte de "decisión" es fuera_de_alcance, y ahí precisamente la acción de backend es la más restringida de todas (no hacer nada más que rechazar) es la manera de mantener el riesgo ALTO acotado.
 
 
-B.4 — Decisión técnica: ¿Reglas o LLM?
+### B.4 — Decisión técnica: ¿Reglas o LLM?
 | Componente del sistema | Naturaleza | Justificación |
 | :--- | :--- | :--- |
 | Extracción de entidades (origen, destino, fechas, escalas, presupuesto) | **Probabilística (LLM)** | El usuario escribe como quiere ("a mediados de mes", "sin escalas si se puede"). No hay forma de cubrir la variedad del lenguaje natural con reglas fijas (if/else); hace falta la comprensión semántica del LLM. |
