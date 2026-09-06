@@ -266,3 +266,9 @@ analizando paso a paso:
 [Cliente: propuesta de viaje clara y verídica en su chat]
 ```
 
+### B.7 — Hipótesis más riesgosa
+
+> "La distribución de precios y disponibilidad del catálogo histórico offline de vuelos (2026) se mantiene lo suficientemente estable en el tiempo como para que las recomendaciones del asistente sigan siendo útiles y válidas para un usuario que busca viajar hoy."
+
+Si es verdadera, el catálogo offline funciona como una excelente aproximación de la realidad y el sistema cumple su objetivo sin pagar el costo de infraestructura de una API de precios en vivo. Si es falsa, el sistema cae en una "alucinación temporal" del dataset: recomienda tarifas y vuelos que ya no existen, destruyendo la confianza del usuario aunque el pipeline técnico funcione perfecto.
+
