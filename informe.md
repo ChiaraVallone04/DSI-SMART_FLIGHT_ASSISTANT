@@ -51,8 +51,24 @@ Diferencia = +4 tokens (9% más en español).
 
 **Reflexión:** aun con una consulta relativamente sencilla (sin un uso intensivo de tildes ni nombres propios largos), el español consume un 9% más de tokens que el inglés para solicitar lo mismo. Con miles de consultas diarias en el *Smart Flight Assistant*, este margen se traduce en un sobrecosto sistemático tanto en las entradas como en las respuestas generadas, sumándose directamente al costo de inyectar el contexto del dataset de vuelos en cada prompt.
 
-Nota: Las mediciones presentadas fueron calculadas con la herramienta tiktoken sobre el tokenizador de OpenAI (gpt-4o). En este proyecto se utilizará modelos de Gemini.
+Nota: la medición de arriba usa tiktoken sobre el tokenizador de OpenAI (gpt-4o). Como este proyecto usa modelos de Gemini, se amplió la comparación contra el tokenizador real de Gemini y también contra Claude (Anthropic), para no depender de un solo proveedor.
 
+**Comparación ampliada — misma consulta, distintos tokenizadores y modelos:**
+
+| Proveedor / Modelo | ES (tokens) | EN (tokens) | Diferencia |
+| :--- | :--- | :--- | :--- |
+| OpenAI `o200k_base` (gpt-4o / gpt-4o-mini) | 47 | 43 | +9.3% |
+| OpenAI `cl100k_base` (gpt-4-turbo, gpt-4, gpt-3.5-turbo) | 58 | 44 | +31.8% |
+| OpenAI `p50k_base` (Codex, davinci-002/003) | 64 | 42 | +52.4% |
+| OpenAI `r50k_base` (GPT-3 original) | 64 | 42 | +52.4% |
+| Claude `haiku-4-5` | 70 | 54 | +29.6% |
+| Claude `sonnet-5` | 87 | 71 | +22.5% |
+| Claude `opus-5` | 87 | 71 | +22.5% |
+| Gemini (`flash-lite-latest`, `flash-latest`, `pro-latest`) | 45 | 46 | **−2.2%** |
+
+(Código en `A4_tokentest.py`, sección "Comparacion entre modelos de Anthropic/Gemini". Requiere `ANTHROPIC_API_KEY`/`GEMINI_API_KEY` en `.env`.)
+
+**Reflexión ampliada:** en OpenAI y Claude el patrón se repite — el español siempre consume más tokens que el inglés para pedir lo mismo, y la brecha crece cuanto más viejo es el tokenizador (9.3% en gpt-4o vs. 52.4% en GPT-3 original). **Gemini es la excepción**: es el único proveedor donde el español usa *menos* tokens que el inglés (−2.2%) para esta consulta puntual. Los 3 modelos de Gemini probados dieron exactamente el mismo resultado entre sí (comparten tokenizador), igual que Sonnet 5 y Opus 5 en Claude — el número de tokens depende de la familia de tokenizador, no de cuán "grande" o caro es el modelo dentro de esa familia. Para el *Smart Flight Assistant*, que usa Gemini, esto es una buena noticia concreta: el sobrecosto por escribir en español que documentamos arriba con tiktoken **no aplica** al proveedor que realmente se usa en producción.
 
 
 ## Parte B — Brief de Solución Técnica (Clase 2)
