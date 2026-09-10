@@ -9,9 +9,6 @@
 - Jorge Alonso
 - Joaquin Darquier
 
-- Rodolfo Messina
-- Franco Leonel Cristillo
-
 ## Instalación
 
 Instalar las dependencias con `pip install -r requirements.txt` (la lista está en [`requirements.txt`](requirements.txt)). Después copiar [`.env.example`](.env.example) a `.env` y completar `GEMINI_API_KEY` con una clave real; `GEMINI_MODEL_NAME` ya viene con un valor por defecto.
