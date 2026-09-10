@@ -1,13 +1,18 @@
 """Lógica de extracción: llama a Gemini, valida la respuesta y resuelve el año de las fechas."""
 from datetime import date, datetime
-from config import client, MODELO_LLM, SYSTEM_INSTRUCTION_COT
+from config import client, MODELO_LLM, SYSTEM_INSTRUCTION_COT, SYSTEM_INSTRUCTION_ZERO_SHOT
 from google.genai import types
 from schemas import OutputResponse, SolicitudEntrada, MESES_ES
+from typing import Literal
 
 # Arma la solicitud, llama a Gemini con salida estructurada, valida y resuelve el año de las fechas
 
 
-def extraer_intencion(texto: str, canal: str):
+def extraer_intencion(texto: str, canal: str, tecnica: Literal["cot", "zero-shot"] = "cot"):
+    if tecnica not in ("cot", "zero-shot"):
+        raise ValueError(
+            f"tecnica debe ser 'cot' o 'zero-shot', se recibió: {tecnica!r}")
+    system_instruction = SYSTEM_INSTRUCTION_COT if tecnica == "cot" else SYSTEM_INSTRUCTION_ZERO_SHOT
     solicitud = SolicitudEntrada(
         canal=canal,
         texto_libre=texto,
@@ -17,7 +22,7 @@ def extraer_intencion(texto: str, canal: str):
         model=MODELO_LLM,
         contents=solicitud.texto_libre,
         config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_INSTRUCTION_COT,
+            system_instruction=system_instruction,
             response_mime_type="application/json",
             response_schema=OutputResponse,
             temperature=0.0,
