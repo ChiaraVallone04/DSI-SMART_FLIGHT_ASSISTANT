@@ -301,7 +301,12 @@ Código completo: [`schemas.py`](schemas.py).
 
 ### C.2 — Script con API real y Structured Outputs
 
-Código completo: [`app.py`](app.py) · Variables de entorno: [`.env.example`](.env.example).
+El script funcional está organizado en módulos con responsabilidades específicas:
+
+- [`app.py`](app.py): recibe la consulta, ejecuta la extracción y muestra la respuesta.
+- [`config.py`](config.py): carga el entorno, valida la API key y configura Gemini.
+- [`extraccion.py`](extraccion.py): genera la solicitud, valida el JSON y resuelve las fechas.
+- [`.env.example`](.env.example): documenta las variables requeridas sin credenciales.
 
 ### C.3 — Lote de prueba y tabla de resultados
 
