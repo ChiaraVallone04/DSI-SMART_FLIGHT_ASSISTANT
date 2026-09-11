@@ -15,16 +15,31 @@ Un usuario interactúa con un agente conversacional para buscar rutas de vuelo d
 
 ### Prueba de alucinación del modelo (Prompt & Respuesta)
 ### A.2 — Evidencia de la necesidad (réplica de "El Proveedor Enojado")
-**Prompt sin darle la fuente de verdad :** *"Sos un asistente de viajes. Decime cuánto cuesta volar de Madrid (MAD) a Berlín (BER) para 2 personas a mediados de octubre de 2026 y cuándo me conviene comprar el pasaje."*
+**Prompt enviado a los proveedores (sin darles la fuente de verdad):**  
+*"Sos un asistente de viajes. Decime cuánto cuesta volar de Madrid (MAD) a Berlín (BER) para 2 personas a mediados de octubre de 2026 y cuándo me conviene comprar el pasaje."*
 
-**Respuesta del Modelo (Alucinada):** Para dos personas, el vuelo directo de ida desde Madrid a Berlín a mediados de octubre de 2026 cuesta desde **76 €** en aerolíneas *low-cost* (como Ryanair) y desde **167 €** en aerolíneas tradicionales (como Iberia), ubicándose los pasajes de ida y vuelta entre **150 € y 320 €** en total; considerando que falta poco más de un mes para la fecha, lo conveniente es **comprar el pasaje de inmediato** antes de que las tarifas sigan subiendo.
+|| Proveedor / Modelo | Respuesta del modelo (sin acceso a la base de datos real) |
+| :--- | :--- |
+| **Google Gemini** | *"Para dos personas, el vuelo directo de ida desde Madrid a Berlín a mediados de octubre de 2026 cuesta desde **76 €** en aerolíneas low-cost (como Ryanair) y desde **167 €** en aerolíneas tradicionales (como Iberia), ubicándose los pasajes de ida y vuelta entre **150 € y 320 €** en total; considerando que falta poco más de un mes para la fecha, lo conveniente es **comprar el pasaje de inmediato** antes de que las tarifas sigan subiendo."* |
+| **OpenAI (ChatGPT / GPT-4o)** | *"Para Madrid (MAD) → Berlín (BER) a mediados de octubre de 2026:<br>✈️ **Precio estimado:** €80–€100 por persona ida y vuelta.<br>👥 **Para 2 personas:** aproximadamente €160–€200 total, sin equipaje extra.<br>💰 **Conviene comprar ahora**, porque falta poco más de un mes y los precios podrían subir.<br>🎯 **Si encuentran menos de €100 por persona directo**, es un buen precio."* |
+| **Anthropic (Claude)** | *"Para Madrid–Berlín en un vuelo ida y vuelta directo, los precios en octubre 2026 rondan entre 90 € y 300 € por persona según agencia y anticipación, con un rango típico de 150-250 € por persona (300-500 € para 2 personas) en fechas de mediados de mes. Ryanair, Iberia y Vueling operan la ruta directa (3h05m aprox.), y hay ofertas puntuales bajo los 150 € ida y vuelta si se reserva con margen y fuera de fin de semana.<br><br>Sobre cuándo comprar: octubre actualmente parece ser un mes relativamente barato para esta ruta, y conviene reservar con unos 40 días de antelación para conseguir el mejor precio. Conviene buscar salidas en miércoles y evitar el martes, que suele ser el día más caro. En general, cuanto antes se reserve, mejores precios se encuentran, ya que las tarifas más económicas se agotan primero.<br><br>Recomendación concreta: si 'mediados de octubre 2026' ya está a menos de 40 días, comprar ahora; si falta más de un mes y medio, esperar a la ventana de ~40 días antes de la fecha y monitorear con una alerta de precio."* |
+
+---
+
 
 **Diagnóstico del fallo:**
-- **Alucinación de precios:** inventó cifras de costo (€76, €167) usando su memoria y patrones probabilísticos en lugar de consultar la base de datos real.
-- **Inferencia temporal errónea:** asumió erróneamente el tiempo restante de compra y aconsejó "comprar de inmediato" sin analizar la variable de anticipación (days_left) del dataset.
+1. **Alucinación generalizada de tarifas y umbrales ficticios:**
+   * **Gemini** alucinó rangos puntuales de €76 a €167 por tramo (€150–€320 total).
+   * **ChatGPT (GPT-4o)** inventó un estimado de €80–€100 por persona (€160–€200 total) e incluso fijó un umbral de conveniencia arbitrario (*"si encuentran menos de €100 es buen precio"*).
+   * **Claude** dio la cobertura más amplia (€90–€300 por persona).
+   * **Fallo común:** Ninguno consultó la fuente real (`europe_flights_google_prices.csv`), demostrando que los tres apelan a memoria probabilística e invención de cifras verosímiles ante la ausencia de una base de datos.
 
-Estos errores se deben a que no tiene acceso a los datos reales. 
+2. **Inferencia temporal e incoherencia de recomendaciones:**
+   * **Gemini y ChatGPT** asumieron de forma simplista que *"falta poco más de un mes"* (a septiembre de 2026) y presionaron para *"comprar ahora/de inmediato"*.
+   * **Claude** intentó estructurar una regla de tiempo (*"comprar con ~40 días de antelación" / "evitar salir los martes"*), la cual carece de sustento al no analizar la variable de anticipación (`days_left`) calculada determinísticamente por nuestro backend.
 
+3. **Conclusión:**  
+   Esta prueba evidencia que la tendencia a alucinar costos y dar consejos de compra apresurados no es un defecto aislado, sino una limitación estructural de los LLMs probabilísticos cuando no tienen acceso a los datos reales de la base de conocimiento.
 
 
 ### Matriz PEAS Extendida
