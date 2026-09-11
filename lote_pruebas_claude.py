@@ -1,11 +1,11 @@
-"""Corre un lote de casos de prueba contra la API real y genera resultados_lote.md."""
+"""Corre el mismo lote de casos de prueba contra Claude (Anthropic) y genera resultados_lote_claude_*.md."""
 import sys
 
 from pydantic import ValidationError
 
 from casos_test import CASOS_TEST, resumir
-from config import MODELO_LLM
-from extraccion import extraer_intencion
+from config_claude import MODELO_LLM
+from extraccion_claude import extraer_intencion
 
 TECNICA = "zero-shot" if "--zero-shot" in sys.argv else "cot"
 
@@ -33,7 +33,7 @@ def main():
             filas.append((index, resumir(caso), resumir(
                 str(e), 90), "No", "Error del sistema"))
     lineas = [
-        "# Resultados del lote de prueba",
+        "# Resultados del lote de prueba (Claude)",
         "",
         f"Modelo usado: `{MODELO_LLM}` · {len(filas)} inputs corridos contra la API real.",
         "",
@@ -44,7 +44,7 @@ def main():
         lineas.append(
             f"| {fila[0]} | {fila[1]} | {fila[2]} | {fila[3]} | {fila[4]} |")
 
-    archivo_salida = f"resultados_lote_{TECNICA.replace('-', '_')}.md"
+    archivo_salida = f"resultados_lote_claude_{TECNICA.replace('-', '_')}.md"
     with open(archivo_salida, "w", encoding="utf-8") as archivo:
         archivo.write("\n".join(lineas) + "\n")
 

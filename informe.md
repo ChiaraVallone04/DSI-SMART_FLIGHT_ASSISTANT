@@ -303,18 +303,35 @@ Código completo: [`schemas.py`](schemas.py).
 
 El script funcional está organizado en módulos con responsabilidades específicas:
 
+**Corrección Entrega 7-Sep — CoT vs. zero-shot**
+
 - [`app.py`](app.py): recibe la consulta, ejecuta la extracción y muestra la respuesta.
-- [`config.py`](config.py): carga el entorno, valida la API key y configura Gemini.
-- [`extraccion.py`](extraccion.py): genera la solicitud, valida el JSON y resuelve las fechas.
+- [`config.py`](config.py): carga el entorno, valida la API key y configura el cliente de Gemini.
+- [`extraccion.py`](extraccion.py): arma la solicitud (vía `extraccion_comun.py`), llama a Gemini con salida estructurada y valida el JSON.
+- [`prompts.py`](prompts.py): `SYSTEM_INSTRUCTION_COT`/`SYSTEM_INSTRUCTION_ZERO_SHOT`, compartidos entre los dos proveedores.
+- [`extraccion_comun.py`](extraccion_comun.py): lógica común a ambos proveedores — valida la técnica, arma la solicitud de entrada y resuelve el año real de las fechas extraídas.
 - [`.env.example`](.env.example): documenta las variables requeridas sin credenciales.
+
+**Corrección Entrega 7-Sep — segundo proveedor (Anthropic/Claude)**
+
+- [`config_claude.py`](config_claude.py): mismo rol que `config.py`, pero configura el cliente de Anthropic.
+- [`extraccion_claude.py`](extraccion_claude.py): misma lógica de extracción (reutiliza `prompts.py` y `extraccion_comun.py`), usando tool-use forzado (equivalente a `response_schema` de Gemini) para obtener el JSON estructurado.
+- [`app_claude.py`](app_claude.py): mismo punto de entrada CLI que `app.py`, apuntando a Claude.
 
 ### C.3 — Lote de prueba y tabla de resultados
 
-Código Pruebas: [`lote_pruebas.py`](lote_pruebas.py).
+Código Pruebas: [`lote_pruebas.py`](lote_pruebas.py) (casos y utilidad de resumen compartidos en [`casos_test.py`](casos_test.py)).
 
 **Corrección Entrega 7-Sep — CoT vs. zero-shot**
 Resultado Pruebas CoT: [`resultados_lote_cot.md`](resultados_lote_cot.md).
 Resultado Pruebas Zero-Shot: [`resultados_lote_zero_shot.md`](resultados_lote_zero_shot.md)
+
+**Corrección Entrega 7-Sep — mismo lote contra un segundo proveedor**
+Código Pruebas: [`lote_pruebas_claude.py`](lote_pruebas_claude.py).
+Resultado Pruebas CoT: [`resultados_lote_claude_cot.md`](resultados_lote_claude_cot.md).
+Resultado Pruebas Zero-Shot: [`resultados_lote_claude_zero_shot.md`](resultados_lote_claude_zero_shot.md)
+
+En 5 de los 6 casos el resultado fue equivalente entre Gemini y Claude (mismas intenciones, mismos parámetros; las únicas diferencias son códigos IATA igual de válidos, ej. `FCO`/`ROM`, `PAR`/`CDG`). La diferencia real está en el caso 4 (`"Busco vuelos a Praga con hasta 7 escalas"`): Gemini extrae `escalas_max=7` literal y Pydantic lo rechaza (`ValidationError`, fuera de rango 0-5); Claude en cambio devuelve `escalas_max=5`, autocorrigiendo el valor antes de que llegue al validador. Esto muestra que la capa determinística de validación (Pydantic) es más necesaria con un proveedor que con otro — con Gemini atrapa el error explícitamente, con Claude el modelo lo "resuelve" de forma silenciosa, lo cual no siempre es el comportamiento deseado.
 
 ### C.4 - Tecnica de prompting
 

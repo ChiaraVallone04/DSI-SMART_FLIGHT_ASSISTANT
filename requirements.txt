@@ -3,3 +3,4 @@ pydantic>=2.0
 python-dotenv>=1.0
 httpx
 tiktoken
+anthropic>=1.0
