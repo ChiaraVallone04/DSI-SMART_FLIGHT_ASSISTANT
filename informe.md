@@ -323,15 +323,18 @@ El script funcional está organizado en módulos con responsabilidades específi
 Código Pruebas: [`lote_pruebas.py`](lote_pruebas.py) (casos y utilidad de resumen compartidos en [`casos_test.py`](casos_test.py)).
 
 **Corrección Entrega 7-Sep — CoT vs. zero-shot**
+
 Resultado Pruebas CoT: [`resultados_lote_cot.md`](resultados_lote_cot.md).
 Resultado Pruebas Zero-Shot: [`resultados_lote_zero_shot.md`](resultados_lote_zero_shot.md)
 
 **Corrección Entrega 7-Sep — mismo lote contra un segundo proveedor**
+
 Código Pruebas: [`lote_pruebas_claude.py`](lote_pruebas_claude.py).
 Resultado Pruebas CoT: [`resultados_lote_claude_cot.md`](resultados_lote_claude_cot.md).
 Resultado Pruebas Zero-Shot: [`resultados_lote_claude_zero_shot.md`](resultados_lote_claude_zero_shot.md)
 
-En 5 de los 6 casos el resultado fue equivalente entre Gemini y Claude (mismas intenciones, mismos parámetros; las únicas diferencias son códigos IATA igual de válidos, ej. `FCO`/`ROM`, `PAR`/`CDG`). La diferencia real está en el caso 4 (`"Busco vuelos a Praga con hasta 7 escalas"`): Gemini extrae `escalas_max=7` literal y Pydantic lo rechaza (`ValidationError`, fuera de rango 0-5); Claude en cambio devuelve `escalas_max=5`, autocorrigiendo el valor antes de que llegue al validador. Esto muestra que la capa determinística de validación (Pydantic) es más necesaria con un proveedor que con otro — con Gemini atrapa el error explícitamente, con Claude el modelo lo "resuelve" de forma silenciosa, lo cual no siempre es el comportamiento deseado.
+En los casos 1, 2 y 6 la intención y los parámetros coinciden entre Gemini y Claude (el `FCO`/`ROM` del caso 2 es una diferencia interna de Gemini CoT/zero-shot, ya vista en C.4). En el caso 3 sí hay una diferencia real entre proveedores: Gemini mapea París a `PAR`, Claude a `CDG`, ambos válidos.
+Los casos 4 y 5 son más relevantes: con **Claude** (`claude-haiku-4-5`) el mismo prompt no siempre da el mismo resultado. En el caso 4 varía entre `ValidationError`, `escalas_max=5` autocorregido y `fuera_de_alcance`; en el caso 5 (consulta vaga pero legítima) varía entre `buscar_vuelos` y `fuera_de_alcance`. **Gemini** es 100% reproducible en ambos gracias a `temperature=0.0`, parámetro que ya no se puede fijar en Claude porque la librería actual de Anthropic lo eliminó. Pydantic ataja el caso 4 (rango de `escalas_max`), pero no el caso 5: un `fuera_de_alcance` con campos en `null` es válido para el schema aunque la intención esté mal clasificada. Ese error necesitaría otra capa (reintentos, un modelo más consistente, o un verificador de intención).
 
 ### C.4 - Tecnica de prompting
 
