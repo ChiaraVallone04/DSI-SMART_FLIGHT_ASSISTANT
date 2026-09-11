@@ -18,7 +18,7 @@ Un usuario interactúa con un agente conversacional para buscar rutas de vuelo d
 **Prompt enviado a los proveedores (sin darles la fuente de verdad):**  
 *"Sos un asistente de viajes. Decime cuánto cuesta volar de Madrid (MAD) a Berlín (BER) para 2 personas a mediados de octubre de 2026 y cuándo me conviene comprar el pasaje."*
 
-|| Proveedor / Modelo | Respuesta del modelo (sin acceso a la base de datos real) |
+| Proveedor / Modelo | Respuesta del modelo (sin acceso a la base de datos real) |
 | :--- | :--- |
 | **Google Gemini** | *"Para dos personas, el vuelo directo de ida desde Madrid a Berlín a mediados de octubre de 2026 cuesta desde **76 €** en aerolíneas low-cost (como Ryanair) y desde **167 €** en aerolíneas tradicionales (como Iberia), ubicándose los pasajes de ida y vuelta entre **150 € y 320 €** en total; considerando que falta poco más de un mes para la fecha, lo conveniente es **comprar el pasaje de inmediato** antes de que las tarifas sigan subiendo."* |
 | **OpenAI (ChatGPT / GPT-4o)** | *"Para Madrid (MAD) → Berlín (BER) a mediados de octubre de 2026:<br>✈️ **Precio estimado:** €80–€100 por persona ida y vuelta.<br>👥 **Para 2 personas:** aproximadamente €160–€200 total, sin equipaje extra.<br>💰 **Conviene comprar ahora**, porque falta poco más de un mes y los precios podrían subir.<br>🎯 **Si encuentran menos de €100 por persona directo**, es un buen precio."* |
@@ -40,6 +40,8 @@ Un usuario interactúa con un agente conversacional para buscar rutas de vuelo d
 
 3. **Conclusión:**  
    Esta prueba evidencia que la tendencia a alucinar costos y dar consejos de compra apresurados no es un defecto aislado, sino una limitación estructural de los LLMs probabilísticos cuando no tienen acceso a los datos reales de la base de conocimiento.
+
+
 
 
 ### Matriz PEAS Extendida
