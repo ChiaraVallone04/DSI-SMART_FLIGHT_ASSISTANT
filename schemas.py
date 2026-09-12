@@ -32,8 +32,8 @@ class SolicitudEntrada(BaseModel):
 class OutputResponse(BaseModel):
     razonamiento: str = Field(
         description="Razonamiento paso a paso del modelo antes de fijar la salida")
-    # La intencion esta limitada en cuatro valores posibles
-    intencion: Literal["buscar_vuelos", "recomendar_compra", "comparar_opciones", "fuera_de_alcance"] = Field(
+    # La intencion esta limitada en cinco valores posibles
+    intencion: Literal["buscar_vuelos", "recomendar_compra", "comparar_opciones", "fuera_de_alcance", "crear_reserva"] = Field(
         description="Tipo de intención detectada")
     origen: str | None = Field(
         default=None, description="Código IATA de origen, 3 letras mayúsculas, ej. MAD")
@@ -47,6 +47,16 @@ class OutputResponse(BaseModel):
         default=None, description="Escalas máximas toleradas (0-5)")
     presupuesto_max: float | None = Field(
         default=None, description="Presupuesto máximo que el usuario está dispuesto a pagar")
+
+    # --- Parámetros de crear_reserva (intención de escritura, riesgo ALTO — B.3) ---
+    flight_id: str | None = Field(
+        default=None, description="Identificador del vuelo a reservar (combinación airline+flight+departure_time de la tabla 'vuelos')")
+    pasajero_nombre: str | None = Field(
+        default=None, description="Nombre completo del pasajero para la reserva")
+    pasajero_documento: str | None = Field(
+        default=None, description="Documento de identidad del pasajero para la reserva")
+    fecha_vuelo: str | None = Field(
+        default=None, description="Fecha del vuelo a reservar")
 
     # Valida que los códigos IATA de origen y destino sean correctos (3 letras alfabeticas mayúsculas)
     # El anotador @field_validator ejecuta automáticamente la función de validación para los campos indicados
@@ -79,8 +89,8 @@ class OutputResponse(BaseModel):
                 f"presupuesto_max debe ser positivo, se recibió: {v}")
         return v
 
-    # Valida que fecha_desde y fecha_hasta tengan un formato válido (mes en español o MM/MM-DD)
-    @field_validator('fecha_desde', 'fecha_hasta')
+    # Valida que fecha_desde, fecha_hasta y fecha_vuelo tengan un formato válido (mes en español o MM/MM-DD)
+    @field_validator('fecha_desde', 'fecha_hasta', 'fecha_vuelo')
     @classmethod
     def validar_formato_fecha(cls, v: str):
         if v is not None:
@@ -99,7 +109,9 @@ class OutputResponse(BaseModel):
         if self.intencion == "fuera_de_alcance":
             if any([
                     self.origen, self.destino, self.fecha_desde,
-                    self.fecha_hasta, self.escalas_max, self.presupuesto_max,]):
+                    self.fecha_hasta, self.escalas_max, self.presupuesto_max,
+                    self.flight_id, self.pasajero_nombre,
+                    self.pasajero_documento, self.fecha_vuelo,]):
                 raise ValueError(
                     "Intención 'fuera_de_alcance' no puede traer parámetros cargados")
         return self
