@@ -1,0 +1,254 @@
+[
+  {
+    "id": "RUTA-MAD-FCO",
+    "descripcion_semantica": "La ruta Madrid–Roma (MAD–FCO) es una de las más transitadas del catálogo, con más de 1.400 vuelos registrados en ambos sentidos —819 saliendo de Madrid y 595 saliendo de Roma— y fuerte demanda tanto para una escapada a Roma desde España como para una escapada a Madrid desde Italia. Es una ruta casi enteramente directa (más del 97% de los vuelos no tiene escalas), con una duración típica de entre 2h20 y 2h40. La cubren principalmente Iberia y Air Europa como aerolíneas tradicionales, junto con ITA Airways (la aerolínea de bandera italiana, heredera de Alitalia), y también opciones low-cost como Ryanair y Wizz Air. Los precios son prácticamente idénticos en los dos sentidos (mediana de 150€ saliendo de Madrid, 149€ saliendo de Roma), con un rango total de 25€ a 675€ según antelación de compra. Los vuelos salen mayormente por la mañana o la tarde, y son más frecuentes los martes y los fines de semana. Solo se ofrece clase económica en esta ruta.",
+    "metadatos": {
+      "origen": "MAD",
+      "destino": "FCO",
+      "pais_origen": "España",
+      "pais_destino": "Italia",
+      "vuelo_directo_disponible": true,
+      "tipo_aerolinea_dominante": "mixto",
+      "categoria_precio": "medio",
+      "tags_regionales": ["escapada a Roma", "finde en Roma", "escapada a Madrid", "finde en Madrid", "low-cost a Italia", "low-cost a España", "Roma barata", "Madrid barato", "viaje corto a Italia", "viaje corto a España"]
+    }
+  },
+  {
+    "id": "RUTA-BCN-MAD",
+    "descripcion_semantica": "La ruta Barcelona–Madrid (BCN–MAD) es la de mayor volumen de todo el catálogo, con 3.470 vuelos registrados en ambos sentidos — el histórico 'puente aéreo' español, tanto para ir de Barcelona a Madrid como al revés. Es mayormente directa (81%) y muy corta, apenas 1h20-1h25 de vuelo. La domina ampliamente Iberia (71% de los vuelos), seguida de Air Europa; ambas aerolíneas tradicionales, reflejo de que esta ruta funciona como corredor de negocios entre las dos ciudades más grandes de España más que como destino turístico. El precio no es idéntico en los dos sentidos: la mediana es de 117€ saliendo de Barcelona y 100€ saliendo de Madrid, con una mediana combinada de 109€. Predominan las salidas por la mañana y hay fuerte demanda entre semana (martes, miércoles), consistente con viajes de trabajo de ida y vuelta en el día.",
+    "metadatos": {
+      "origen": "BCN",
+      "destino": "MAD",
+      "pais_origen": "España",
+      "pais_destino": "España",
+      "vuelo_directo_disponible": true,
+      "tipo_aerolinea_dominante": "tradicional",
+      "categoria_precio": "medio",
+      "tags_regionales": ["puente aéreo", "viaje de negocios", "Barcelona Madrid", "Madrid Barcelona", "vuelo corto España"]
+    }
+  },
+  {
+    "id": "RUTA-CPH-OSL",
+    "descripcion_semantica": "La ruta Copenhague–Oslo (CPH–OSL) conecta las capitales de Dinamarca y Noruega en ambos sentidos y es una de las más transitadas del norte de Europa, con 3.378 vuelos y un 96% de vuelos directos de apenas 1h10-1h15. La cubre principalmente Scandinavian Airlines (SAS, 74%) junto con la low-cost noruega Norwegian (23%) — la mezcla típica de las rutas intraescandinavas, con fuerte peso de negocios entre semana (martes y miércoles son los días de mayor salida) y una mediana de precio moderada y pareja en los dos sentidos (118€ desde Copenhague, 124€ desde Oslo). Es una ruta muy estable operativamente, sin las conexiones forzadas que sí aparecen en otras rutas nórdicas del catálogo.",
+    "metadatos": {
+      "origen": "CPH",
+      "destino": "OSL",
+      "pais_origen": "Dinamarca",
+      "pais_destino": "Noruega",
+      "vuelo_directo_disponible": true,
+      "tipo_aerolinea_dominante": "mixto",
+      "categoria_precio": "medio",
+      "tags_regionales": ["ruta nórdica", "Escandinavia", "Copenhague Oslo", "Oslo Copenhague", "viaje de negocios nórdico"]
+    }
+  },
+  {
+    "id": "RUTA-LHR-LIS",
+    "descripcion_semantica": "La ruta Londres–Lisboa (LHR–LIS) conecta el Reino Unido con Portugal en ambos sentidos, con buen volumen (2.557 vuelos) pero solo un 69% de vuelos directos — hay una porción real de itinerarios con escala. La cubren casi por partes iguales TAP Air Portugal (la aerolínea de bandera portuguesa) y British Airways, con una duración directa de 2h45-2h50. Los precios no son simétricos: volver de Lisboa a Londres tiene una mediana de 218€, un 23% más cara que ir de Londres a Lisboa (177€) — probablemente porque hay más demanda de turistas volviendo a Reino Unido tras sus vacaciones que a la inversa. Predominan las salidas matutinas y hay mayor tráfico martes, lunes y sábado.",
+    "metadatos": {
+      "origen": "LHR",
+      "destino": "LIS",
+      "pais_origen": "Reino Unido",
+      "pais_destino": "Portugal",
+      "vuelo_directo_disponible": true,
+      "tipo_aerolinea_dominante": "tradicional",
+      "categoria_precio": "medio",
+      "tags_regionales": ["Londres Lisboa", "Lisboa Londres", "escapada a Portugal", "capital a capital", "vuelta más cara"]
+    }
+  },
+  {
+    "id": "RUTA-BCN-FCO",
+    "descripcion_semantica": "La ruta Barcelona–Roma (BCN–FCO) es una de las más baratas de todo el catálogo, con una mediana de apenas 62€ y prácticamente sin escalas (99% directos, 1h50-1h55 de vuelo) en ambos sentidos por igual — el precio es prácticamente el mismo yendo (60€) o volviendo (62€). La cubre una combinación fuertemente low-cost: Vueling, Ryanair y Wizz Air suman más del 70% de los vuelos, con ITA Airways como única opción tradicional relevante. Es el perfil clásico de escapada de fin de semana económica entre dos capitales del Mediterráneo, tanto para ir de España a Italia como al revés. Concentra salidas matutinas y mayor demanda los martes, lunes y sábados.",
+    "metadatos": {
+      "origen": "BCN",
+      "destino": "FCO",
+      "pais_origen": "España",
+      "pais_destino": "Italia",
+      "vuelo_directo_disponible": true,
+      "tipo_aerolinea_dominante": "low-cost",
+      "categoria_precio": "económico",
+      "tags_regionales": ["escapada barata a Roma", "escapada barata a Barcelona", "low-cost mediterráneo", "Barcelona Roma", "Roma Barcelona", "finde económico"]
+    }
+  },
+  {
+    "id": "RUTA-ATH-LHR",
+    "descripcion_semantica": "La ruta Atenas–Londres (ATH–LHR) tiene un volumen alto (2.354 vuelos en ambos sentidos) pero solo poco más de la mitad son directos (53%) — el resto pasa por algún hub intermedio. La cubren British Airways y Aegean Airlines (la aerolínea de bandera griega) como principales, ambas tradicionales. El precio es algo más alto saliendo de Londres (268€ de mediana) que saliendo de Atenas (237€), una diferencia del 12% probablemente ligada a mayor poder adquisitivo del turista saliente británico. Es una ruta con tráfico repartido entre mañana y tarde, y mayor demanda los martes, sábados y lunes — mezcla de negocios y turismo hacia y desde Grecia.",
+    "metadatos": {
+      "origen": "ATH",
+      "destino": "LHR",
+      "pais_origen": "Grecia",
+      "pais_destino": "Reino Unido",
+      "vuelo_directo_disponible": true,
+      "tipo_aerolinea_dominante": "tradicional",
+      "categoria_precio": "medio",
+      "tags_regionales": ["Atenas Londres", "Londres Atenas", "Grecia Reino Unido", "vuelo con escala frecuente"]
+    }
+  },
+  {
+    "id": "RUTA-OSL-TLL",
+    "descripcion_semantica": "La ruta Oslo–Tallin (OSL–TLL) es uno de los casos más claros del catálogo donde nunca hay vuelo directo, en ninguno de los dos sentidos: el 100% de los 2.278 itinerarios registrados incluye al menos una escala, típicamente en algún hub báltico o finlandés. La cubren aerolíneas de bandera del norte y este de Europa — Finnair, Scandinavian Airlines, Air Baltic y LOT — con una mediana de precio pareja yendo (132€) y volviendo (140€). Es un buen ejemplo de ruta de nicho entre dos capitales medianas, sin suficiente demanda directa como para justificar un vuelo sin escalas todavía. Predominan salidas matutinas y mayor tráfico los martes y sábados.",
+    "metadatos": {
+      "origen": "OSL",
+      "destino": "TLL",
+      "pais_origen": "Noruega",
+      "pais_destino": "Estonia",
+      "vuelo_directo_disponible": false,
+      "tipo_aerolinea_dominante": "tradicional",
+      "categoria_precio": "medio",
+      "tags_regionales": ["ruta con escala obligatoria", "báltico", "Oslo Tallin", "Tallin Oslo", "sin vuelo directo"]
+    }
+  },
+  {
+    "id": "RUTA-CDG-MRS",
+    "descripcion_semantica": "La ruta París–Marsella (CDG–MRS) es doméstica dentro de Francia pero, sorprendentemente, solo un 56% de los vuelos son directos en cualquiera de los dos sentidos — casi la mitad pasa por otra ciudad antes de llegar, algo poco común para un trayecto interno de apenas 1h25-1h30 cuando es directo. La domina Air France (58%), seguida de aerolíneas europeas menores como Brussels Airlines y Air Algérie. La mediana de precio es algo más alta volviendo desde Marsella (216€) que saliendo de París (197€), aunque ambas son altas para ser un vuelo doméstico corto. Concentra salidas matutinas y mayor demanda los martes, sábados y miércoles.",
+    "metadatos": {
+      "origen": "CDG",
+      "destino": "MRS",
+      "pais_origen": "Francia",
+      "pais_destino": "Francia",
+      "vuelo_directo_disponible": true,
+      "tipo_aerolinea_dominante": "tradicional",
+      "categoria_precio": "medio",
+      "tags_regionales": ["vuelo doméstico Francia", "París Marsella", "Marsella París", "corredor interno caro"]
+    }
+  },
+  {
+    "id": "RUTA-BRE-FRA",
+    "descripcion_semantica": "La ruta Bremen–Fráncfort (BRE–FRA) es un caso llamativo: es un trayecto doméstico dentro de Alemania, corto en términos geográficos, pero el 100% de los vuelos registrados en ambos sentidos tiene al menos una escala, y el precio es alto para ser una ruta interna — más aún volviendo desde Fráncfort a Bremen (mediana 389€) que yendo (323€), una diferencia del 20%. La explicación probable es que Bremen es un aeropuerto regional chico sin conexión directa suficiente al hub de Fráncfort pese a la cercanía, y los itinerarios terminan pasando por otros hubs europeos (Ámsterdam, París) antes de llegar. La cubren Lufthansa y combinaciones con KLM y Air France. Es un buen ejemplo de que 'doméstico' no significa ni barato ni directo.",
+    "metadatos": {
+      "origen": "BRE",
+      "destino": "FRA",
+      "pais_origen": "Alemania",
+      "pais_destino": "Alemania",
+      "vuelo_directo_disponible": false,
+      "tipo_aerolinea_dominante": "tradicional",
+      "categoria_precio": "premium",
+      "tags_regionales": ["doméstico caro Alemania", "sin directo pese a ser corto", "Bremen Fráncfort", "Fráncfort Bremen"]
+    }
+  },
+  {
+    "id": "RUTA-DUB-WAW",
+    "descripcion_semantica": "La ruta Dublín–Varsovia (DUB–WAW) conecta Irlanda con Polonia en ambos sentidos y, como Oslo–Tallin, no registra ningún vuelo directo en el catálogo (0%) — todos los itinerarios pasan por algún hub centroeuropeo. La cubre una mezcla de aerolíneas tradicionales del oeste de Europa (KLM, Lufthansa, Air France, British Airways), ninguna claramente dominante, con una mediana de precio pareja yendo (200€) y volviendo (215€). Es una ruta con fuerte componente migratorio y laboral entre ambos países. Predominan salidas matutinas y mayor demanda los martes y sábados.",
+    "metadatos": {
+      "origen": "DUB",
+      "destino": "WAW",
+      "pais_origen": "Irlanda",
+      "pais_destino": "Polonia",
+      "vuelo_directo_disponible": false,
+      "tipo_aerolinea_dominante": "tradicional",
+      "categoria_precio": "medio",
+      "tags_regionales": ["Dublín Varsovia", "Varsovia Dublín", "sin vuelo directo", "ruta este-oeste Europa"]
+    }
+  },
+  {
+    "id": "RUTA-BGY-BVA",
+    "descripcion_semantica": "La ruta Bérgamo–París Beauvais (BGY–BVA) es la más barata de todo el catálogo, con una mediana de apenas 29€ y un mínimo de 16€. Es 100% operada por Ryanair y 100% directa, con una duración corta de 1h35. Ambos aeropuertos son terminales secundarias low-cost lejos de los centros de Milán y París respectivamente — el modelo clásico de Ryanair de operar desde aeropuertos periféricos más baratos para sostener tarifas mínimas. Ojo con la dirección: el catálogo registra 35 vuelos saliendo de Bérgamo hacia Beauvais y solo 2 en sentido inverso — casi toda la oferta relevada está pensada como un viaje de ida hacia París, no como una ruta simétrica. Es un volumen bajo en total (37 vuelos) pero representa perfectamente el extremo económico del catálogo.",
+    "metadatos": {
+      "origen": "BGY",
+      "destino": "BVA",
+      "pais_origen": "Italia",
+      "pais_destino": "Francia",
+      "vuelo_directo_disponible": true,
+      "tipo_aerolinea_dominante": "low-cost",
+      "categoria_precio": "económico",
+      "tags_regionales": ["low-cost puro", "aeropuertos secundarios", "Ryanair", "vuelo más barato del catálogo", "Milán a París barato", "casi sin registro de vuelta"]
+    }
+  },
+  {
+    "id": "RUTA-CIA-CRL",
+    "descripcion_semantica": "La ruta Roma Ciampino–Bruselas Charleroi (CIA–CRL) es otro ejemplo puro de red low-cost: 100% operada por Ryanair, 100% directa, con una mediana de precio de 37€. Igual que Bérgamo–Beauvais, conecta dos aeropuertos secundarios (Ciampino en vez de Fiumicino, Charleroi en vez de Bruselas-Zaventem), la estrategia habitual de las low-cost para reducir costos de aterrizaje. A diferencia de la mayoría de las rutas del catálogo, acá el dataset no registra ningún vuelo en sentido inverso (Charleroi a Ciampino): los 109 vuelos relevados son todos saliendo de Roma hacia Bruselas. La duración es de 2h10 y el volumen es bajo, con mayor demanda los jueves y domingos, típico de quien vuela para un fin de semana largo.",
+    "metadatos": {
+      "origen": "CIA",
+      "destino": "CRL",
+      "pais_origen": "Italia",
+      "pais_destino": "Bélgica",
+      "vuelo_directo_disponible": true,
+      "tipo_aerolinea_dominante": "low-cost",
+      "categoria_precio": "económico",
+      "tags_regionales": ["low-cost puro", "aeropuertos secundarios", "Ryanair", "Roma a Bruselas barato", "finde largo", "sin registro de vuelta"]
+    }
+  },
+  {
+    "id": "RUTA-LHR-ZRH",
+    "descripcion_semantica": "La ruta Londres–Zúrich (LHR–ZRH) conecta el Reino Unido con Suiza en ambos sentidos, con buen volumen (2.369 vuelos) y un 75% de vuelos directos de menos de 3 horas. La domina SWISS (48%), la aerolínea de bandera suiza, seguida de British Airways — el perfil típico de ruta de negocios entre dos plazas financieras europeas. La mediana de precio es prácticamente idéntica yendo (148€) y volviendo (150€). Predominan salidas repartidas entre mañana y tarde, con mayor tráfico martes, sábados y lunes.",
+    "metadatos": {
+      "origen": "LHR",
+      "destino": "ZRH",
+      "pais_origen": "Reino Unido",
+      "pais_destino": "Suiza",
+      "vuelo_directo_disponible": true,
+      "tipo_aerolinea_dominante": "tradicional",
+      "categoria_precio": "medio",
+      "tags_regionales": ["ruta financiera", "Londres Zúrich", "Zúrich Londres", "negocios Suiza"]
+    }
+  },
+  {
+    "id": "RUTA-KEF-MAD",
+    "descripcion_semantica": "La ruta Reikiavik–Madrid (KEF–MAD) conecta Islandia con España en ambos sentidos, sin ningún vuelo directo registrado (0%) — todos los itinerarios pasan por al menos un hub europeo, a menudo escandinavo o alemán. Es una ruta de bajo volumen relativo (560 vuelos) y precio alto, con una mediana casi idéntica yendo (486€) y volviendo (488€), reflejo de la distancia, la falta de conexión directa y de que Islandia tiene un mercado aéreo mucho más chico que el resto de Europa continental. La cubren combinaciones de aerolíneas variadas (Lufthansa, SAS con Icelandair, British Airways con Iberia, LOT) sin ningún operador realmente dominante.",
+    "metadatos": {
+      "origen": "KEF",
+      "destino": "MAD",
+      "pais_origen": "Islandia",
+      "pais_destino": "España",
+      "vuelo_directo_disponible": false,
+      "tipo_aerolinea_dominante": "tradicional",
+      "categoria_precio": "premium",
+      "tags_regionales": ["Islandia", "destino periférico", "Reikiavik Madrid", "Madrid Reikiavik", "sin vuelo directo", "caro"]
+    }
+  },
+  {
+    "id": "RUTA-DUB-TIA",
+    "descripcion_semantica": "La ruta Dublín–Tirana (DUB–TIA) conecta Irlanda con Albania en ambos sentidos, uno de los destinos menos frecuentes del catálogo, sin ningún vuelo directo (0%). Todos los itinerarios pasan por hubs centroeuropeos, principalmente vía Alemania o Austria (Lufthansa y combinaciones con Austrian Airlines son las opciones más comunes, junto con Turkish Airlines). La mediana de precio es similar yendo (303€) y volviendo (284€). Es un buen representante de destino de nicho dentro del catálogo, útil para poner a prueba el límite entre lo que sí está cubierto y lo que no.",
+    "metadatos": {
+      "origen": "DUB",
+      "destino": "TIA",
+      "pais_origen": "Irlanda",
+      "pais_destino": "Albania",
+      "vuelo_directo_disponible": false,
+      "tipo_aerolinea_dominante": "tradicional",
+      "categoria_precio": "premium",
+      "tags_regionales": ["Albania", "destino poco frecuente", "Dublín Tirana", "Tirana Dublín", "sin vuelo directo"]
+    }
+  },
+  {
+    "id": "RUTA-MSQ-RIX",
+    "descripcion_semantica": "La ruta Minsk–Riga (MSQ–RIX) conecta Bielorrusia con Letonia y es una de las de menor volumen del catálogo (apenas 44 vuelos en total, 22 por sentido), sin ningún directo (0%) y con precio alto en los dos sentidos (mediana de 644€ saliendo de Minsk, 744€ saliendo de Riga — con una muestra tan chica, esta diferencia puede deberse al azar más que a un patrón real). La cubren casi exclusivamente combinaciones entre Air Baltic y Azerbaijan Airlines. Concentra salidas nocturnas, algo inusual respecto al resto del catálogo donde predomina la mañana. Es el ejemplo más extremo de país poco cubierto del catálogo junto con Islandia y Albania.",
+    "metadatos": {
+      "origen": "MSQ",
+      "destino": "RIX",
+      "pais_origen": "Bielorrusia",
+      "pais_destino": "Letonia",
+      "vuelo_directo_disponible": false,
+      "tipo_aerolinea_dominante": "tradicional",
+      "categoria_precio": "premium",
+      "tags_regionales": ["Bielorrusia", "báltico raro", "Minsk Riga", "Riga Minsk", "bajo volumen", "sin vuelo directo"]
+    }
+  },
+  {
+    "id": "RUTA-AYT-MMX",
+    "descripcion_semantica": "La ruta Antalya–Malmö (AYT–MMX) es, por lejos, la más cara de todo el catálogo: ningún vuelo baja de 2.255€ y la mediana es de 2.761€, muy por encima de cualquier otra ruta registrada. Conecta un destino turístico turco con una ciudad sueca de tamaño medio — pero, a diferencia de la mayoría de las rutas del catálogo, el dataset solo registra vuelos en el sentido Malmö hacia Antalya; no hay ningún vuelo relevado en el sentido inverso. Todos los itinerarios combinan Scandinavian Airlines con SunExpress (aerolínea turca de perfil vacacional) y a veces un tercer tramo con SWISS o Lufthansa. El precio extremo probablemente refleja bajísima frecuencia y una combinación de tramos poco optimizada más que una demanda real de esa magnitud — es el caso más útil del catálogo para poner a prueba si el sistema responde con cautela ante un precio atípico en vez de tomarlo como referencia normal.",
+    "metadatos": {
+      "origen": "AYT",
+      "destino": "MMX",
+      "pais_origen": "Turquía",
+      "pais_destino": "Suecia",
+      "vuelo_directo_disponible": false,
+      "tipo_aerolinea_dominante": "mixto",
+      "categoria_precio": "premium",
+      "tags_regionales": ["ruta más cara del catálogo", "precio atípico", "Malmö a Antalya", "bajísimo volumen", "sin registro de vuelta"]
+    }
+  },
+  {
+    "id": "RUTA-GCI-JER",
+    "descripcion_semantica": "La ruta Guernsey–Jersey (GCI–JER) conecta las dos islas más grandes del archipiélago del Canal en ambos sentidos, y es la más corta del catálogo por lejos: apenas 25 minutos de vuelo cuando es directo (60% de los casos). La cubre principalmente Aurigny Air Services, la aerolínea regional de Guernsey, junto con British Airways. El precio es algo más alto saliendo de Guernsey (116€ de mediana) que saliendo de Jersey (103€) — típico de rutas insulares con poca competencia y sin alternativa terrestre. Es una curiosidad útil del catálogo: dos territorios pequeños y cercanos entre sí, tratados como países separados en los datos.",
+    "metadatos": {
+      "origen": "GCI",
+      "destino": "JER",
+      "pais_origen": "Guernsey",
+      "pais_destino": "Jersey",
+      "vuelo_directo_disponible": true,
+      "tipo_aerolinea_dominante": "tradicional",
+      "categoria_precio": "medio",
+      "tags_regionales": ["islas del Canal", "vuelo cortísimo", "Guernsey Jersey", "Jersey Guernsey", "sin alternativa terrestre"]
+    }
+  }
+]
