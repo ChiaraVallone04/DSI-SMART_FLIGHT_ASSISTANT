@@ -135,3 +135,26 @@ Código completo: [`pipeline_vectorial.py`](pipeline_vectorial.py).
 | | 3 | RUTA-OSL-TLL | 0,4805 |
 
 Las consultas 1 y 3 devuelven exactamente lo esperado: rutas baratas/directas a Italia, y las dos rutas del catálogo que tocan el Báltico. La consulta 2 expone el mismo tipo de falso positivo que ya se había encontrado en A.2 con ejes hechos a mano — solo que ahora con un embedding real de 1.536 dimensiones, no con 2 ejes toscos: el resultado #1 para "sin escalas" es `RUTA-OSL-TLL`, que según su propia `descripcion_semantica` **nunca tiene vuelo directo**. El embedding capta bien el registro semántico de "lujo" (vocabulario, tono) pero no un hecho puntual y verificable como "0% de vuelos directos" — exactamente el argumento por el cual el filtro de metadatos de B.4 (`vuelo_directo_disponible: true`) no es opcional, ni siquiera con un embedding de calidad: la búsqueda semántica sola puede sonar convincente y estar objetivamente mal.
+
+---
+
+### A.5 — Prueba destructiva: volatilidad de la RAM
+
+Se reprodujeron los dos escenarios que pide la consigna, borrando y recreando `faiss_index/` para simular un reinicio del entorno.
+
+**Sin persistencia (o el entorno se reinició antes de guardar):**
+```
+$ rm -rf faiss_index
+$ python pipeline_vectorial.py
+[api] No hay índice en disco — generando embeddings para 18 documentos...
+```
+El índice no está en disco, así que no hay otra opción que volver a llamar a la API de embeddings para los 18 documentos — se pagan tokens de nuevo aunque el contenido de `base_conocimiento.json` no haya cambiado un solo carácter desde la corrida anterior.
+
+**Con persistencia (`faiss.write_index()` ya se ejecutó):**
+```
+$ python pipeline_vectorial.py
+[disco] Índice recargado desde 'faiss_index\index.faiss' — sin llamadas a la API de embeddings.
+```
+Misma consulta, mismo resultado, cero llamadas a OpenAI: el índice se reconstruye desde los bytes en disco en milisegundos.
+
+**Reflexión.** En producción, si el servidor se reinicia (deploy, crash, escalado) y el índice solo vivía en RAM, hay que regenerar embeddings de toda la base antes de poder responder la primera consulta — tiempo muerto y costo repetido en cada reinicio, y en un catálogo real (miles de documentos, no 18) ese tiempo de arranque en frío deja de ser trivial. El caso de **dos servidores** es peor todavía si cada uno mantiene su propio índice solo en memoria: no solo se paga el costo de generar embeddings dos veces, sino que nada garantiza que ambos índices queden idénticos si la base se actualizó entre una regeneración y la otra — dos instancias respondiendo con "verdades" ligeramente distintas. Persistir en disco (y, mejor todavía, en un storage compartido entre instancias) es lo que evita que la disponibilidad del servicio dependa de que la RAM de un proceso nunca se reinicie.
