@@ -250,5 +250,79 @@
       "categoria_precio": "medio",
       "tags_regionales": ["islas del Canal", "vuelo cortísimo", "Guernsey Jersey", "Jersey Guernsey", "sin alternativa terrestre"]
     }
+  },
+
+
+
+
+  {
+    "id": "RUTA-MAD-FCO-DUP-JERGA",
+    "descripcion_semantica": "El trayecto entre Madrid Barajas y Roma Fiumicino posee alta demanda para viajes cortos a Italia o España. Operado sin escalas en el 97% de los trayectos por Iberia, Air Europa y la compañía de bandera italiana ITA Airways, además de opciones económicas con Ryanair y Wizz. Costo medio de 150 euros.",
+    "metadatos": {
+      "origen": "MAD",
+      "destino": "FCO",
+      "pais_origen": "España",
+      "pais_destino": "Italia",
+      "vuelo_directo_disponible": true,
+      "tipo_aerolinea_dominante": "mixto",
+      "categoria_precio": "medio",
+      "tags_regionales": ["escapada a Roma", "vuelo corto Italia"]
+    }
+  },
+  {
+    "id": "RUTA-BCN-MAD-DUP-TEXTO",
+    "descripcion_semantica": "Vuelos entre Barcelona y Madrid, el histórico corredor conocido como puente aéreo. Vuelos directos de 1h20 operados predominantemente por Iberia para viajeros de negocios entre las principales ciudades de España.",
+    "metadatos": {
+      "origen": "BCN",
+      "destino": "MAD",
+      "pais_origen": "España",
+      "pais_destino": "España",
+      "vuelo_directo_disponible": true,
+      "tipo_aerolinea_dominante": "tradicional",
+      "categoria_precio": "medio",
+      "tags_regionales": ["puente aéreo", "negocios"]
+    }
+  },
+  {
+    "id": "RUTA-BGY-BVA-DUP-CONCEPTUAL",
+    "descripcion_semantica": "Ruta súper barata operada por Ryanair conectando Bérgamo y Beauvais (aeropuertos secundarios de Milán y París). Vuelo directo de 1h35 con tarifas desde 16 a 29 euros.",
+    "metadatos": {
+      "origen": "BGY",
+      "destino": "BVA",
+      "pais_origen": "Italia",
+      "pais_destino": "Francia",
+      "vuelo_directo_disponible": true,
+      "tipo_aerolinea_dominante": "low-cost",
+      "categoria_precio": "económico",
+      "tags_regionales": ["low-cost", "Ryanair"]
+    }
+  },
+  {
+    "id": "RUTA-TEST-CLAVE-INCORRECTA",
+    "descripcion_semantica": "Ruta de prueba para evaluar la corrección de claves mal nombradas en el pipeline ETL.",
+    "metadatos": {
+      "origen": "BIO",
+      "destino": "AGP",
+      "pais_origen": "España",
+      "pais_destino": "España",
+      "is_direct": true,
+      "tipo_aerolinea_dominante": "low-cost",
+      "categoria_precio": "económico",
+      "tags_regionales": ["prueba"]
+    }
+  },
+  {
+    "id": "RUTA-TEST-BOOL-STRING",
+    "descripcion_semantica": "Ruta de prueba para verificar la conversión de booleanos cargados como tipo string en el pipeline ETL.",
+    "metadatos": {
+      "origen": "VLC",
+      "destino": "PMI",
+      "pais_origen": "España",
+      "pais_destino": "España",
+      "vuelo_directo_disponible": "True",
+      "tipo_aerolinea_dominante": "low-cost",
+      "categoria_precio": "económico",
+      "tags_regionales": ["prueba"]
+    }
   }
 ]

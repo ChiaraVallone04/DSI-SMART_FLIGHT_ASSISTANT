@@ -219,7 +219,8 @@ El archivo estático de origen (`base_conocimiento.json`) conserva el registro h
 ### B.4 — CLI de búsqueda híbrida
 Se implementó el script `B4_busqueda_hibrida.py`, el cual integra búsqueda semántica por embeddings (`query_texts`) combinada con filtrado estructurado nativo (`where`) en ChromaDB.
 
-*Construcción nativa del filtro `where`*
+**Construcción nativa del filtro `where`**
+
 Para evitar procesar filtros en Python y optimizar el cálculo de similitud, las restricciones se resuelven nativamente en la base de datos usando `$eq` y `$and`:
 
 - **Filtro simple:** Si se aplica una sola restricción (ej. `solo_directos`), se envía directamente la condición `{"vuelo_directo_disponible": {"$eq": True}}`.
@@ -233,7 +234,7 @@ Para evitar procesar filtros en Python y optimizar el cálculo de similitud, las
   }
   ```
 
-  Se ejecutaron las pruebas del script obteniendo las siguientes respuestas desde el motor de búsqueda vectorial:
+Se ejecutaron las pruebas del script obteniendo las siguientes respuestas desde el motor de búsqueda vectorial:
 ```text
 TEST 1: Búsqueda Semántica + Vuelo Directo
 -> Ruta directa inaugurada entre Reikiavik (KEF) y Madrid (MAD). Opción económica e ideal para turismo de auroras boreales y viajes nórdicos sin escalas.
@@ -249,3 +250,61 @@ TEST 3: Ambos Filtros ($and NATIVO)
 ```
 
 Aplicar el filtrado de metadatos dentro de ChromaDB previo al cálculo de similitud evita procesar documentos irrelevantes, optimiza el consumo y garantiza respuestas precisas e integras.
+
+
+### B.5 — ETL y purga semántica
+Para validar la solidez del pipeline ante datos inconsistentes y redundantes, se introdujeron 5 registros de prueba sucios en la base de conocimiento (base_conocimiento.json), elevando temporalmente el total inicial a 23 registros:
+
+RUTA-MAD-FCO-DUP-JERGA: Misma información de Madrid–Roma, pero escrita en lenguaje informal.
+
+RUTA-BCN-MAD-DUP-TEXTO: Copia del puente aéreo Barcelona–Madrid cambiando el orden de las palabras y sintaxis.
+
+RUTA-BGY-BVA-DUP-CONCEPTUAL: Resumen en otras palabras de la ruta Bérgamo–Beauvais.
+
+RUTA-TEST-CLAVE-INCORRECTA: Ruta de prueba (Bilbao–Málaga) con el nombre de un campo mal escrito (is_direct en vez de vuelo_directo_disponible).
+
+RUTA-TEST-BOOL-STRING: Ruta de prueba (Valencia–Palma) con un tipo de dato inconsistente ("True" como texto en lugar del booleano true).
+
+
+**Justificación del umbral de distancia coseno (0.20)**
+Se utilizó text-embedding-3-small fijando un umbral de 0.20 para balancear la detección de redundancias sin incurrir en falsos positivos:
+**Riesgo de umbrales altos (>0.20)**: Al evaluar un umbral de 0.25, el sistema logró capturar el parafraseo de RUTA-BCN-MAD-DUP-TEXTO (0.2138), pero generó un falso positivo al eliminar erróneamente la ruta legítima Barcelona–Roma (BCN-FCO), la cual presentaba una distancia de 0.2103 frente a Madrid–Roma (MAD-FCO) por compartir características de destino y demanda.
+
+**Elección de 0.20**: Garantiza la conservación de todas las rutas válidas del catálogo eliminando únicamente paráfrasis de alta similitud.
+
+
+La ejecución del script arrojó el siguiente log de consola (umbral 0.20):
+```text
+Total registros cargados iniciales: 23
+Registros tras normalización ETL: 23
+
+Se eliminaron 2 casi-duplicados semánticos.
+Total registros finales purgados: 21
+
+[PURGA DETECTADA - Distancia: 0.1598]
+  - Mantener (RUTA-MAD-FCO): La ruta Madrid–Roma (MAD–FCO) es una de las más transitadas del catálogo, con más de 1.400 vuelos re...
+  - Eliminar (RUTA-MAD-FCO-DUP-JERGA): El trayecto entre Madrid Barajas y Roma Fiumicino posee alta demanda para viajes cortos a Italia o E...
+
+[PURGA DETECTADA - Distancia: 0.1512]
+  - Mantener (RUTA-BGY-BVA): La ruta Bérgamo–París Beauvais (BGY–BVA) es la más barata de todo el catálogo, con una mediana de ap...
+  - Eliminar (RUTA-BGY-BVA-DUP-CONCEPTUAL): Ruta súper barata operada por Ryanair conectando Bérgamo y Beauvais (aeropuertos secundarios de Milá...
+```
+**Limpieza ETL**: Normalizó con éxito la clave is_direct → vuelo_directo_disponible y convirtió la cadena "True" al booleano true.
+
+**Purga semántica**: Eliminó los 2 casi-duplicados de menor distancia (RUTA-MAD-FCO-DUP-JERGA a 0.1599 y RUTA-BGY-BVA-DUP-CONCEPTUAL a 0.1513).
+
+**Resultado final**: La base final consta de 21 registros. Se conservaron las 2 rutas de prueba (BIO-AGP y VLC-PMI) corregidas por el ETL por no presentar redundancia con ninguna otra ruta, mientras que RUTA-BCN-MAD-DUP-TEXTO (0.2138) se mantuvo al situarse por encima del umbral de corte definido para priorizar la precisión del catálogo y evitar falsos positivos.
+
+
+**Análisis del caso RUTA-BCN-MAD-DUP-TEXTO:**
+**Ficha original (RUTA-BCN-MAD)**: Detalla el "puente aéreo", la alta frecuencia de negocios, las aerolíneas principales (Iberia/Air Europa), tiempos de vuelo (1h20-1h25) y la mediana de precios (109€).
+
+**Ficha duplicada (RUTA-BCN-MAD-DUP-TEXTO)**: Cuenta exactamente la misma historia del corredor Barcelona–Madrid pero estructurada con otra sintaxis y palabras ligeramente distintas.
+
+Al tener una distancia de 0.2138, quedó apenas por encima del umbral de 0.20. La comparación demuestra que si se sube el umbral a 0.25 para forzar la eliminación de este duplicado, el vectorizador terminaba confundiendo Madrid–Roma con Barcelona–Roma (0.2103).
+
+En ingeniería de datos y RAG, cuando hay duda entre eliminar un dato o conservarlo, siempre se prefiere la precisión (evitar borrar datos reales por error). Un registro casi-duplicado menor en la base vectorial tiene costo cero para el usuario en la etapa de generación, mientras que haber borrado una ruta real como Barcelona–Roma habría sido un fallo grave del sistema.
+
+
+
+Un SELECT DISTINCT no habría encontrado estos duplicados porque realiza una comparación de texto literal, evaluando cadenas exactas, por lo que redactar la misma idea con distintas palabras lo toma como registros diferentes. Además, al tener identificadores distintos (id), la base de datos los considera filas independientes, y cualquier variación en las claves o tipos de datos rompe la coincidencia exacta a nivel de bytes.
