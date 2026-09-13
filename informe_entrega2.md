@@ -148,7 +148,7 @@ $ rm -rf faiss_index
 $ python pipeline_vectorial.py
 [api] No hay índice en disco — generando embeddings para 18 documentos...
 ```
-El índice no está en disco, así que no hay otra opción que volver a llamar a la API de embeddings para los 18 documentos — se pagan tokens de nuevo aunque el contenido de `base_conocimiento.json` no haya cambiado un solo carácter desde la corrida anterior.
+El índice no está en disco, así que no hay otra opción que volver a llamar a la API de embeddings para los 18 documentos, se pagan tokens de nuevo aunque el contenido de `base_conocimiento.json` no haya cambiado un solo carácter desde la corrida anterior.
 
 **Con persistencia (`faiss.write_index()` ya se ejecutó):**
 ```
@@ -157,7 +157,7 @@ $ python pipeline_vectorial.py
 ```
 Misma consulta, mismo resultado, cero llamadas a OpenAI: el índice se reconstruye desde los bytes en disco en milisegundos.
 
-**Reflexión.** En producción, si el servidor se reinicia (deploy, crash, escalado) y el índice solo vivía en RAM, hay que regenerar embeddings de toda la base antes de poder responder la primera consulta — tiempo muerto y costo repetido en cada reinicio, y en un catálogo real (miles de documentos, no 18) ese tiempo de arranque en frío deja de ser trivial. El caso de **dos servidores** es peor todavía si cada uno mantiene su propio índice solo en memoria: no solo se paga el costo de generar embeddings dos veces, sino que nada garantiza que ambos índices queden idénticos si la base se actualizó entre una regeneración y la otra — dos instancias respondiendo con "verdades" ligeramente distintas. Persistir en disco (y, mejor todavía, en un storage compartido entre instancias) es lo que evita que la disponibilidad del servicio dependa de que la RAM de un proceso nunca se reinicie.
+**Reflexión.** En producción, si el servidor se reinicia (deploy, crash, escalado) y el índice solo vivía en RAM, hay que regenerar embeddings de toda la base antes de poder responder la primera consulta — tiempo muerto y costo repetido en cada reinicio, y en un catálogo real (miles de documentos, no 18) ese tiempo de arranque en frío deja de ser trivial. El caso de **dos servidores** es peor todavía si cada uno mantiene su propio índice solo en memoria: no solo se paga el costo de generar embeddings dos veces, sino que nada garantiza que ambos índices queden idénticos si la base se actualizó entre una regeneración y la otra, dos instancias respondiendo con "verdades" ligeramente distintas. Persistir en disco (y, mejor todavía, en un storage compartido entre instancias) es lo que evita que la disponibilidad del servicio dependa de que la RAM de un proceso nunca se reinicie.
 
 ---
 
@@ -191,7 +191,9 @@ Para simular una actualización operativa en tiempo real, se modificó el estado
 
 **¿Por qué upsert y no add ni update?**
 **No add**: Si el ID ya existe en ChromaDB, add lanza un error de clave duplicada (IDAlreadyExistsError) y cancela la operación.
+
 **No update**: Si por algún motivo el ID no existiera previamente en la base, update falla al no encontrar el registro a modificar.
+
 **Por qué upsert**: Es una operación atómica e idempotente. Si el documento existe, actualiza su texto, embedding y metadatos en el acto. Si no existe, lo crea. Es la opción más segura para procesar cambios en tiempo real sin romper el flujo de la aplicación.
 
 
@@ -212,3 +214,38 @@ Metadatos actualizados: {'pais_origen': 'Islandia', 'tags_regionales': ['auroras
 Esta actualización impacta directamente en el almacenamiento persistente de **ChromaDB** (`chroma_db/`), que es el motor consultado en tiempo real por el asistente. 
 
 El archivo estático de origen (`base_conocimiento.json`) conserva el registro histórico inicial (`vuelo_directo_disponible: false`, `categoria_precio: premium`). Esto demuestra la capacidad del sistema para gestionar eventos en caliente (`upsert`) sobre la base vectorial sin requerir una re-vectorización ni modificación del dataset estático original.
+
+
+### B.4 — CLI de búsqueda híbrida
+Se implementó el script `B4_busqueda_hibrida.py`, el cual integra búsqueda semántica por embeddings (`query_texts`) combinada con filtrado estructurado nativo (`where`) en ChromaDB.
+
+*Construcción nativa del filtro `where`*
+Para evitar procesar filtros en Python y optimizar el cálculo de similitud, las restricciones se resuelven nativamente en la base de datos usando `$eq` y `$and`:
+
+- **Filtro simple:** Si se aplica una sola restricción (ej. `solo_directos`), se envía directamente la condición `{"vuelo_directo_disponible": {"$eq": True}}`.
+- **Filtro compuesto (`$and`):** Si se aplican múltiples restricciones (ej. categoría de precio y vuelo directo), se encapsulan bajo el operador nativo:
+  ```python
+  where_filter = {
+      "$and": [
+          {"categoria_precio": {"$eq": "medio"}},
+          {"vuelo_directo_disponible": {"$eq": True}}
+      ]
+  }
+  ```
+
+  Se ejecutaron las pruebas del script obteniendo las siguientes respuestas desde el motor de búsqueda vectorial:
+```text
+TEST 1: Búsqueda Semántica + Vuelo Directo
+-> Ruta directa inaugurada entre Reikiavik (KEF) y Madrid (MAD). Opción económica e ideal para turismo de auroras boreales y viajes nórdicos sin escalas.
+   Metadatos: {'tipo_aerolinea_dominante': 'low-cost', 'pais_origen': 'Islandia', 'pais_destino': 'España', 'origen': 'KEF', 'destino': 'MAD', 'tags_regionales': ['auroras boreales', 'islandia', 'escapada nórdica', 'directo'], 'categoria_precio': 'medio', 'vuelo_directo_disponible': True}
+
+TEST 2: Búsqueda Semántica + Categoría de Precio
+-> Ruta directa inaugurada entre Reikiavik (KEF) y Madrid (MAD). Opción económica e ideal para turismo de auroras boreales y viajes nórdicos sin escalas.
+   Metadatos: {'categoria_precio': 'medio', 'tags_regionales': ['auroras boreales', 'islandia', 'escapada nórdica', 'directo'], 'pais_destino': 'España', 'pais_origen': 'Islandia', 'vuelo_directo_disponible': True, 'origen': 'KEF', 'destino': 'MAD', 'tipo_aerolinea_dominante': 'low-cost'}
+
+TEST 3: Ambos Filtros ($and NATIVO)
+-> Ruta directa inaugurada entre Reikiavik (KEF) y Madrid (MAD). Opción económica e ideal para turismo de auroras boreales y viajes nórdicos sin escalas.
+   Metadatos: {'pais_destino': 'España', 'tipo_aerolinea_dominante': 'low-cost', 'destino': 'MAD', 'origen': 'KEF', 'categoria_precio': 'medio', 'vuelo_directo_disponible': True, 'tags_regionales': ['auroras boreales', 'islandia', 'escapada nórdica', 'directo'], 'pais_origen': 'Islandia'}
+```
+
+Aplicar el filtrado de metadatos dentro de ChromaDB previo al cálculo de similitud evita procesar documentos irrelevantes, optimiza el consumo y garantiza respuestas precisas e integras.
