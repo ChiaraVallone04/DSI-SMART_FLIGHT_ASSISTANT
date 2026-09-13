@@ -268,9 +268,13 @@ RUTA-TEST-BOOL-STRING: Ruta de prueba (Valencia–Palma) con un tipo de dato inc
 
 **Justificación del umbral de distancia coseno (0.20)**
 Se utilizó text-embedding-3-small fijando un umbral de 0.20 para balancear la detección de redundancias sin incurrir en falsos positivos:
+
+
 **Riesgo de umbrales altos (>0.20)**: Al evaluar un umbral de 0.25, el sistema logró capturar el parafraseo de RUTA-BCN-MAD-DUP-TEXTO (0.2138), pero generó un falso positivo al eliminar erróneamente la ruta legítima Barcelona–Roma (BCN-FCO), la cual presentaba una distancia de 0.2103 frente a Madrid–Roma (MAD-FCO) por compartir características de destino y demanda.
 
+
 **Elección de 0.20**: Garantiza la conservación de todas las rutas válidas del catálogo eliminando únicamente paráfrasis de alta similitud.
+
 
 
 La ejecución del script arrojó el siguiente log de consola (umbral 0.20):
@@ -288,18 +292,26 @@ Total registros finales purgados: 21
 [PURGA DETECTADA - Distancia: 0.1512]
   - Mantener (RUTA-BGY-BVA): La ruta Bérgamo–París Beauvais (BGY–BVA) es la más barata de todo el catálogo, con una mediana de ap...
   - Eliminar (RUTA-BGY-BVA-DUP-CONCEPTUAL): Ruta súper barata operada por Ryanair conectando Bérgamo y Beauvais (aeropuertos secundarios de Milá...
+
+  ¡ChromaDB actualizada con éxito! Total indexados: 21
 ```
+
+
 **Limpieza ETL**: Normalizó con éxito la clave is_direct → vuelo_directo_disponible y convirtió la cadena "True" al booleano true.
 
-**Purga semántica**: Eliminó los 2 casi-duplicados de menor distancia (RUTA-MAD-FCO-DUP-JERGA a 0.1599 y RUTA-BGY-BVA-DUP-CONCEPTUAL a 0.1513).
+**Purga semántica**: Eliminó los 2 casi-duplicados de menor distancia (RUTA-MAD-FCO-DUP-JERGA a 0.1598 y RUTA-BGY-BVA-DUP-CONCEPTUAL a 0.1512).
 
 **Resultado final**: La base final consta de 21 registros. Se conservaron las 2 rutas de prueba (BIO-AGP y VLC-PMI) corregidas por el ETL por no presentar redundancia con ninguna otra ruta, mientras que RUTA-BCN-MAD-DUP-TEXTO (0.2138) se mantuvo al situarse por encima del umbral de corte definido para priorizar la precisión del catálogo y evitar falsos positivos.
 
 
-**Análisis del caso RUTA-BCN-MAD-DUP-TEXTO:**
-**Ficha original (RUTA-BCN-MAD)**: Detalla el "puente aéreo", la alta frecuencia de negocios, las aerolíneas principales (Iberia/Air Europa), tiempos de vuelo (1h20-1h25) y la mediana de precios (109€).
 
-**Ficha duplicada (RUTA-BCN-MAD-DUP-TEXTO)**: Cuenta exactamente la misma historia del corredor Barcelona–Madrid pero estructurada con otra sintaxis y palabras ligeramente distintas.
+
+**Análisis del caso RUTA-BCN-MAD-DUP-TEXTO:**
+
+
+- **Ficha original (RUTA-BCN-MAD)**: Detalla el "puente aéreo", la alta frecuencia de negocios, las aerolíneas principales (Iberia/Air Europa), tiempos de vuelo (1h20-1h25) y la mediana de precios (109€).
+
+- **Ficha duplicada (RUTA-BCN-MAD-DUP-TEXTO)**: Cuenta exactamente la misma historia del corredor Barcelona–Madrid pero estructurada con otra sintaxis y palabras ligeramente distintas.
 
 Al tener una distancia de 0.2138, quedó apenas por encima del umbral de 0.20. La comparación demuestra que si se sube el umbral a 0.25 para forzar la eliminación de este duplicado, el vectorizador terminaba confundiendo Madrid–Roma con Barcelona–Roma (0.2103).
 

@@ -125,3 +125,27 @@ for par in pares_detectados:
     print(
         f"  - Eliminar ({par['eliminado']}): {par['texto_eliminado'][:100]}..."
     )
+
+# indexación automática en ChromaDB
+chroma_client = chromadb.PersistentClient(path="./chroma_db")
+
+# Si la colección ya existe, la eliminamos para recrearla limpia con los 21 registros
+try:
+    chroma_client.delete_collection("vuelos_smart_flight_assistant")
+except Exception:
+    pass
+
+col = chroma_client.create_collection(
+    name="vuelos_smart_flight_assistant", embedding_function=openai_ef
+)
+
+# insertar los registros purgados
+col.add(
+    documents=[d["descripcion_semantica"] for d in datos_purgados],
+    metadatas=[d["metadatos"] for d in datos_purgados],
+    ids=[d["id"] for d in datos_purgados],
+)
+
+print(
+    f"\n¡ChromaDB actualizada con éxito! Total indexados: {len(datos_purgados)}"
+)
