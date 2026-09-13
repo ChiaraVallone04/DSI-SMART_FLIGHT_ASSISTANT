@@ -4,3 +4,5 @@ python-dotenv>=1.0
 httpx
 tiktoken
 anthropic>=1.0
+openai>=1.0
+faiss-cpu>=1.8

@@ -111,3 +111,27 @@ Cada documento cubre **ambas direcciones de la ruta** (ej. Madrid→Roma y Roma�
 | Aerolíneas que cubren la ruta, % directo real, contexto de por qué es popular, asimetría de precio por dirección, curiosidades del catálogo | `descripcion_semantica` (texto) | Es lo narrativo/interpretativo: no hay un `WHERE` que capture "por qué esta ruta es popular para escapadas de finde" — es exactamente lo que un embedding sabe comparar por significado, y lo que un filtro exacto no puede expresar. |
 
 Los datos detrás de cada documento (mediana y rango de precio, % de vuelos directos, aerolíneas dominantes con su porcentaje real, duración típica) se calcularon agrupando las filas reales del dataset por par de aeropuertos — no se inventó ningún número — lo cual cumple el requisito de "documentos reales o creíbles" de la consigna.
+
+---
+
+### A.4 — Índice FAISS (`pipeline_vectorial.py`)
+
+Código completo: [`pipeline_vectorial.py`](pipeline_vectorial.py).
+
+**Qué hace el script.** Lee `OPENAI_API_KEY` desde `.env` (nunca hardcodeada, con `load_dotenv(override=True)` para que el `.env` del proyecto no quede pisado por una variable de entorno del sistema — problema real que apareció al probarlo). Genera embeddings de las 18 `descripcion_semantica` de `base_conocimiento.json` con `text-embedding-3-small` (1.536 dimensiones), normaliza los vectores con `faiss.normalize_L2` y los carga en un `IndexFlatIP`: producto interno sobre vectores normalizados es matemáticamente equivalente a similitud coseno, la misma métrica que ya se usó a mano en A.2 y que va a usar ChromaDB en B.1 (`hnsw:space: cosine`) — se mantiene un criterio de similitud consistente en las tres partes del TP. El índice se persiste con `faiss.write_index()` en `faiss_index/index.faiss`, junto con un `ids.json` que guarda el orden de los IDs (para poder mapear cada posición del índice de vuelta a un documento, algo que FAISS no guarda por sí solo). Al arrancar, si el índice ya existe en disco y sus IDs coinciden con los de `base_conocimiento.json`, se recarga con `faiss.read_index()` sin volver a llamar a la API.
+
+**Resultado de las 3 consultas de prueba (top-3, similitud coseno):**
+
+| Consulta | # | Ruta | Similitud |
+|---|---|---|---|
+| "quiero una escapada barata y directa a Italia" | 1 | RUTA-BCN-FCO | 0,5727 |
+| | 2 | RUTA-MAD-FCO | 0,4936 |
+| | 3 | RUTA-BGY-BVA | 0,4269 |
+| "busco un vuelo de lujo, sin escalas, no me importa el precio" | 1 | RUTA-OSL-TLL | 0,4722 |
+| | 2 | RUTA-BCN-FCO | 0,4369 |
+| | 3 | RUTA-BRE-FRA | 0,4283 |
+| "ruta entre Alemania y algún país báltico" | 1 | RUTA-BRE-FRA | 0,5315 |
+| | 2 | RUTA-MSQ-RIX | 0,5015 |
+| | 3 | RUTA-OSL-TLL | 0,4805 |
+
+Las consultas 1 y 3 devuelven exactamente lo esperado: rutas baratas/directas a Italia, y las dos rutas del catálogo que tocan el Báltico. La consulta 2 expone el mismo tipo de falso positivo que ya se había encontrado en A.2 con ejes hechos a mano — solo que ahora con un embedding real de 1.536 dimensiones, no con 2 ejes toscos: el resultado #1 para "sin escalas" es `RUTA-OSL-TLL`, que según su propia `descripcion_semantica` **nunca tiene vuelo directo**. El embedding capta bien el registro semántico de "lujo" (vocabulario, tono) pero no un hecho puntual y verificable como "0% de vuelos directos" — exactamente el argumento por el cual el filtro de metadatos de B.4 (`vuelo_directo_disponible: true`) no es opcional, ni siquiera con un embedding de calidad: la búsqueda semántica sola puede sonar convincente y estar objetivamente mal.
