@@ -31,6 +31,12 @@ venv.bak/
 *.sqlite3
 *.log
 
+# Entrega 2: indices/bases vectoriales (se reconstruyen desde base_conocimiento.json)
+*.index
+faiss_index/
+chroma_db/
+.chroma/
+
 # Byte-compiled / installer cache
 *.egg-info/
 .installed.cfg
