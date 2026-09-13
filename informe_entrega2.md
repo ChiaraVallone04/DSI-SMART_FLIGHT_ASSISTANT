@@ -195,3 +195,20 @@ Para simular una actualización operativa en tiempo real, se modificó el estado
 **Por qué upsert**: Es una operación atómica e idempotente. Si el documento existe, actualiza su texto, embedding y metadatos en el acto. Si no existe, lo crea. Es la opción más segura para procesar cambios en tiempo real sin romper el flujo de la aplicación.
 
 
+### Evidencia de Ejecución en Caliente
+
+Se ejecutó el script `B3_evento_caliente.py` verificando la inserción/actualización mediante el método `upsert` y la posterior consulta directa a la base de datos vectorial ChromaDB. EL output fue el siguiente
+
+```text
+=== Ejecutando Evento en Caliente para ID: RUTA-KEF-MAD ===
+ Actualización realizada con éxito en ChromaDB.
+
+=== Estado Verificado en ChromaDB ===
+ID: RUTA-KEF-MAD
+Documento: Ruta directa inaugurada entre Reikiavik (KEF) y Madrid (MAD). Opción económica e ideal para turismo de auroras boreales y viajes nórdicos sin escalas.
+Metadatos actualizados: {'pais_origen': 'Islandia', 'tags_regionales': ['auroras boreales', 'islandia', 'escapada nórdica', 'directo'], 'categoria_precio': 'medio', 'pais_destino': 'España', 'origen': 'KEF', 'tipo_aerolinea_dominante': 'low-cost', 'vuelo_directo_disponible': True, 'destino': 'MAD'}
+```
+
+Esta actualización impacta directamente en el almacenamiento persistente de **ChromaDB** (`chroma_db/`), que es el motor consultado en tiempo real por el asistente. 
+
+El archivo estático de origen (`base_conocimiento.json`) conserva el registro histórico inicial (`vuelo_directo_disponible: false`, `categoria_precio: premium`). Esto demuestra la capacidad del sistema para gestionar eventos en caliente (`upsert`) sobre la base vectorial sin requerir una re-vectorización ni modificación del dataset estático original.
