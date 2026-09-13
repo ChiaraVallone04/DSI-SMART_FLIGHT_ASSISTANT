@@ -9,7 +9,7 @@ Asistente Virtual Intuitivo de Planificación de Vuelos y Optimización de Itine
 **Descripción del caso**
 Un usuario interactúa con un agente conversacional para buscar rutas de vuelo dentro de Europa. El sistema debe:
 - **Procesar la solicitud:** el sistema analiza el diálogo con el usuario para identificar los parámetros clave del viaje (origen, destino, rango de fechas, pasajeros, máximo de escalas y criterio de ordenamiento).
-- **Consulta de datos:** traduce estos parámetros a consultas SQL estructuradas sobre el dataset europe_flights_google_prices.csv (1,15 millones de filas para los períodos mayo-junio y septiembre-diciembre de 2026) con el fin de recuperar opciones de vuelos reales. Usa el comportamiento histórico (lo que ya pasó en mayo-junio) junto con las tarifas que se están vendiendo hoy en tiempo real (septiembre-diciembre) para predecir si el precio actual de un vuelo a salir en noviembre, por ejemplo, va a subir o bajar en los días que quedan.
+- **Consulta de datos:** traduce estos parámetros a consultas SQL estructuradas sobre el dataset europe_flights_final.csv (1.112.738 filas para los períodos mayo-junio y septiembre-diciembre de 2026) con el fin de recuperar opciones de vuelos reales. Usa el comportamiento histórico (lo que ya pasó en mayo-junio) junto con las tarifas que se están vendiendo hoy en tiempo real (septiembre-diciembre) para predecir si el precio actual de un vuelo a salir en noviembre, por ejemplo, va a subir o bajar en los días que quedan.
 - **Análisis predictivo y recomendación:** a partir de variables como la antelación de la reserva (days_left), la aerolínea, el día de la semana y el número de escalas, el sistema evalúa la tendencia de precios para estimar tarifas futuras y aconsejar al usuario el momento óptimo de compra.
 
 
@@ -32,7 +32,7 @@ Un usuario interactúa con un agente conversacional para buscar rutas de vuelo d
    * **Gemini** alucinó rangos puntuales de €76 a €167 por tramo (€150–€320 total).
    * **ChatGPT (GPT-4o)** inventó un estimado de €80–€100 por persona (€160–€200 total) e incluso fijó un umbral de conveniencia arbitrario (*"si encuentran menos de €100 es buen precio"*).
    * **Claude** dio la cobertura más amplia (€90–€300 por persona).
-   * **Fallo común:** Ninguno consultó la fuente real (`europe_flights_google_prices.csv`), demostrando que los tres apelan a memoria probabilística e invención de cifras verosímiles ante la ausencia de una base de datos.
+   * **Fallo común:** Ninguno consultó la fuente real (`europe_flights_final.csv`), demostrando que los tres apelan a memoria probabilística e invención de cifras verosímiles ante la ausencia de una base de datos.
 
 2. **Inferencia temporal e incoherencia de recomendaciones:**
    * **Gemini y ChatGPT** asumieron de forma simplista que *"falta poco más de un mes"* (a septiembre de 2026) y presionaron para *"comprar ahora/de inmediato"*.
@@ -49,7 +49,7 @@ Un usuario interactúa con un agente conversacional para buscar rutas de vuelo d
 | Componente | Definición | Aplicación en el Smart Flight Assistant |
 | :--- | :--- | :--- |
 | **P**erformance<br>*(Rendimiento)* | Criterios de éxito con los que se evalúa el comportamiento del agente. | • Exactitud en las recomendaciones de vuelos y precios.<br>• Minimización del costo de los pasajes encontrados.<br>• Precisión en la extracción de intenciones y parámetros de búsqueda.<br>• Rapidez de respuesta. |
-| **E**nvironment<br>*(Entorno)* | Todo lo que rodea al agente y con lo que interactúa. | • Base de datos relacional de vuelos (europe_flights_google_prices.csv).<br>• Interfaz de usuario (chat / consola).<br>• API de LLM (para el parseo estructurado). |
+| **E**nvironment<br>*(Entorno)* | Todo lo que rodea al agente y con lo que interactúa. | • Base de datos relacional de vuelos (europe_flights_final.csv).<br>• Interfaz de usuario (chat / consola).<br>• API de LLM (para el parseo estructurado). |
 | **A**ctuators<br>*(Actuadores)* | Los medios por los cuales el agente ejecuta acciones en el entorno. | • Consultas a la base de datos (SQL / Pandas).<br>• Respuestas de texto para el usuario.<br>• Estructura JSON generada con Pydantic. |
 | **S**ensors<br>*(Sensores)* | Los medios por los cuales el agente percibe la información del entorno. | • Prompt / mensaje de texto ingresado por el usuario.<br>• Tablas y filas devueltas por la base de datos tras la consulta. |
 | **Base de Conocimiento** | Qué sabe el sistema. | El dataset histórico de vuelos (CSV → tabla SQL `vuelos`). Todavía sin base vectorial ni datos en vivo (ver C.5). |
@@ -93,13 +93,13 @@ Nota: la medición de arriba usa tiktoken sobre el tokenizador de OpenAI (gpt-4o
 ### B.1 — Señal de dolor
 
 **Señal dominante: Carga cognitiva alta.**
-Planificar un viaje dentro de Europa obliga al usuario a cruzar mentalmente demasiadas variables a la vez para tomar una sola decisión de compra: fecha de salida, flexibilidad de fechas, aeropuertos alternativos cercanos, número de escalas aceptable, aerolínea, duración total, y el dilema entre qué tan barato es un pasaje versus qué tan cómodo resulta el viaje entre todas esas combinaciones. No es una tarea que falte automatizar por volumen (una persona busca su propio vuelo, no miles), sino porque **el espacio de opciones es demasiado grande para evaluarlo a mano con criterio**: el dataset que releva este sistema tiene 6.177 rutas únicas y hasta 5 escalas posibles por itinerario, nadie compara esas combinaciones "a ojo" en una pestaña de Google Flights sin sesgo. 
+Planificar un viaje dentro de Europa obliga al usuario a cruzar mentalmente demasiadas variables a la vez para tomar una sola decisión de compra: fecha de salida, flexibilidad de fechas, aeropuertos alternativos cercanos, número de escalas aceptable, aerolínea, duración total, y el dilema entre qué tan barato es un pasaje versus qué tan cómodo resulta el viaje entre todas esas combinaciones. No es una tarea que falte automatizar por volumen (una persona busca su propio vuelo, no miles), sino porque **el espacio de opciones es demasiado grande para evaluarlo a mano con criterio**: el dataset que releva este sistema tiene 4.147 rutas únicas y hasta 5 escalas posibles por itinerario, nadie compara esas combinaciones "a ojo" en una pestaña de Google Flights sin sesgo. 
 
 También existe una **latencia humana**: para saber si conviene comprar ya o esperar, el usuario suele acudir a asistenciales genéricos (ChatGPT, Gemini) que, como se vio en A.2, inventan la respuesta al no acceder a precios reales ni a la variable days_left. La alternativa "correcta" sería consultar a un agente humano o cruzar webs manualmente, lo que suma demoras e indisponibilidad en el momento exacto de la decisión.
 
 **Quién lo sufre:** el viajero individual que busca vuelos dentro de Europa sin un itinerario fijo (fechas flexibles, sin lealtad a una aerolínea), es decir, quien más se beneficia de comparar opciones, y quien menos capacidad tiene de hacerlo bien a mano.
 
-**Frecuencia:** por usuario es esporádica (una o pocas veces por viaje planeado), pero agregada a nivel de plataforma es alto volumen, cada búsqueda dispara una consulta nueva sobre el dataset completo de 1.150.000 filas, sin repetirse el patrón de la consulta anterior.
+**Frecuencia:** por usuario es esporádica (una o pocas veces por viaje planeado), pero agregada a nivel de plataforma es alto volumen, cada búsqueda dispara una consulta nueva sobre el dataset completo de 1.112.738 filas, sin repetirse el patrón de la consulta anterior.
 
 **Consecuencia concreta de no resolverlo hoy:** el usuario paga de más (compra en el momento equivocado, o no considera una escala que le hubiera ahorrado dinero) o pierde tiempo cruzando manualmente varias fuentes, y si recurre a un LLM genérico sin base de datos real, como se vio en A.2, recibe una recomendación con apariencia de certeza que en realidad es inventada.
 
@@ -165,7 +165,7 @@ También existe una **latencia humana**: para saber si conviene comprar ya o es
 
 **timestamp**: registra de manera determinista el momento exacto en que se realiza la consulta. Es importante para que el backend calcule internamente en Python la variable discreta days_left de nuestro dataset, restando la fecha de interacción a la fecha aproximada de vuelo. 
 
-        Nota sobre crear_reserva (Alto Riesgo): Si la intención es crear_reserva, el LLM extrae obligatoriamente pasajero_nombre, pasajero_documento, flight y fecha_vuelo. El backend exige confirmación explícita (OTP/Token) antes de impactar la base de datos.
+**Nota sobre `crear_reserva` (Alto Riesgo):** si la intención es `crear_reserva`, el LLM extrae obligatoriamente `pasajero_nombre`, `pasajero_documento`, `flight` y `fecha_vuelo`. El backend exige confirmación explícita (OTP/Token) antes de impactar la base de datos.
 
 
 #### b) Esquema de la base de datos (SQL)
@@ -389,4 +389,4 @@ En 5 de los 6 casos el resultado fue idéntico con y sin razonamiento explícito
 
 ### C.5 - Cierre: donde se conecta 
 
-Este script implementa solo el primer tramo del flujo de *Smart Flight Assistant* de B.6: `[POST /api/v1/flights] → [LLM extrae intención y parámetros] → [Código/Pydantic valida el JSON]`, se corta ahí. Todavía no llega a `[SQL Consulta vuelos reales, no carga y left]`, y no redacta la respuesta final. Le falta la **Base de Conocimiento**. Hoy el JSON validado no se cruza contra ningún dato real (ni la tabla SQL ni el dataset están conectados), así que el sistema queda con Sensores y Razonamiento pero sin la autoridad de datos que evite la alucinación de A.2.
+Este script implementa solo el primer tramo del flujo de *Smart Flight Assistant* de B.6: `[POST /api/v1/flights] → [LLM extrae intención y parámetros] → [Código/Pydantic valida el JSON]`, se corta ahí. Todavía no llega a `[SQL] Consulta vuelos reales`, no calcula `days_left`, y no redacta la respuesta final. Le falta la **Base de Conocimiento**. Hoy el JSON validado no se cruza contra ningún dato real (ni la tabla SQL ni el dataset están conectados), así que el sistema queda con Sensores y Razonamiento pero sin la autoridad de datos que evite la alucinación de A.2.
