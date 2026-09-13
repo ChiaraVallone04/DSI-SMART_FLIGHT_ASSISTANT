@@ -346,3 +346,9 @@ El PEAS marcaba la Base de Conocimiento como *"Todavía sin base vectorial ni da
 Los campos de filtrado se mantienen, solo cambia dónde se aplican: antes en el `WHERE` de SQL, ahora como metadatos nativos de ChromaDB. Excepción: `fecha_desde`/`fecha_hasta` siguen en el SQL transaccional, sin equivalente en la base vectorial (mismo motivo por el que la base es por ruta y no por fila).
 
 La "Regla de oro" (*"en ningún caso el LLM toma decisiones... eso lo calcula siempre el backend"*) sigue aplicando al destino del filtro, pero acá llega armado a mano, no derivado de un LLM parseando el `texto_libre`.
+
+---
+
+### C.2 — El umbral de aceptación
+
+En A.2 se estimó un umbral teórico de similitud coseno de 0.75-0.80, sobre el ejercicio de 2 ejes hecho a mano. Sin embargo, ese número no está implementado como corte numérico en el código de recuperación: los embeddings reales de 1536 dimensiones dan similitudes máximas más bajas en la práctica (0.43-0.57 en las pruebas de A.4), por lo que un corte fijo de 0.75 rechazaría incluso las mejores coincidencias reales del catálogo. El comportamiento correcto se logra en cambio por el system prompt del LLM generador (B.6), instruido a responder solo con el contexto recuperado y admitir la falta de información en vez de inventar. Prueba de esto es el Killer Query #3: ante una consulta sobre una ruta fuera del catálogo (Buenos Aires-Tokio), ChromaDB devuelve sus 3 vecinos más cercanos por default, pero el LLM reconoce que ninguno responde la pregunta y contesta "No dispongo de esa información en el catálogo" en vez de forzar el más parecido.
