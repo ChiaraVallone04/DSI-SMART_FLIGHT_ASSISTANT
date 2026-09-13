@@ -24,3 +24,66 @@ Se documentan a continuación los tres problemas de meter toda la Base de Conoci
 
 **Cierre — ¿por qué un `SELECT ... WHERE descripcion LIKE '%...%'` tampoco alcanza?**
 Porque `LIKE` compara texto literal, no significado: si el usuario escribe "quiero una escapada barata a Italia" y ningún documento contiene exactamente esas palabras (dicen "Roma", "low-cost", "mediterráneo"), el `LIKE` no encuentra nada aunque el documento correcto exista. Tampoco resuelve el desangre de tokens ni el lost in the middle — seguiría siendo necesario decidir qué mandar y en qué orden. Y a diferencia de un embedding, `LIKE` no tiene noción de "cuán parecido" es un resultado a otro para priorizar: es una coincidencia binaria (sí/no), no un ranking por relevancia semántica.
+
+---
+
+### A.2 — Similitud coseno a mano
+
+**Los dos ejes elegidos.** En vez de ejes abstractos, se usaron dos de los metadatos ya definidos en A.3 — así el ejercicio queda conectado con la base real en vez de ser un cálculo aislado:
+
+- **Eje X — Precio** (`categoria_precio` escalada a 0-10): económico → 2, medio → 5, premium → 9.
+- **Eje Y — Comodidad** (% de vuelos directos ÷ 10): de 0 (siempre con escala) a 10 (siempre directo).
+
+**Los vectores (documentos reales de la base).**
+
+| Vector | Ruta | Precio (X) | % Directo (Y) |
+|---|---|---|---|
+| **A** | RUTA-BCN-FCO (económico, 99,2% directo) | 2 | 9,9 |
+| **B** | RUTA-KEF-MAD (premium, 0% directo) | 9 | 0,0 |
+| **C** | RUTA-MAD-FCO (medio, 97,7% directo) | 5 | 9,8 |
+| **Q** (consulta) | "algo barato y sin escalas" | 1 | 10,0 |
+
+**Cálculo a mano — los 3 pasos (ejemplo completo: Q vs. A).**
+
+$$\text{Similitud} = \frac{A \cdot B}{\|A\| \times \|B\|}$$
+
+1. **Producto punto:** $Q \cdot A = (1)(2) + (10)(9{,}9) = 2 + 99 = 101$
+2. **Normas:** $\|Q\| = \sqrt{1^2+10^2} = \sqrt{101} = 10{,}05$ — $\|A\| = \sqrt{2^2+9{,}9^2} = \sqrt{102{,}01} = 10{,}10$
+3. **División:** $\dfrac{101}{10{,}05 \times 10{,}10} = \dfrac{101}{101{,}5} = \mathbf{0{,}995}$
+
+Resultado de las 3 comparaciones (a mano y validado con NumPy):
+
+| Comparación | Producto punto | Normas | Similitud |
+|---|---|---|---|
+| Q vs. A (BCN-FCO) | 101 | 10,05 × 10,10 | **0,995** |
+| Q vs. C (MAD-FCO) | 103 | 10,05 × 11,00 | **0,932** |
+| Q vs. B (KEF-MAD) | 9 | 10,05 × 9,00 | **0,100** |
+
+**Validación con NumPy** (misma función que da la consigna):
+
+```python
+import numpy as np
+
+def similitud_coseno(a, b):
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+A = np.array([2, 9.9]);  B = np.array([9, 0.0]);  C = np.array([5, 9.8])
+Q = np.array([1, 10.0])
+
+similitud_coseno(Q, A)  # 0.9950
+similitud_coseno(Q, B)  # 0.0995
+similitud_coseno(Q, C)  # 0.9316
+```
+
+Los tres resultados coinciden con el cálculo manual, y tienen sentido con la intuición del dominio: la consulta ("barato y sin escalas") es casi idéntica en dirección al vector de BCN-FCO (0,995 — ambos apuntan fuerte hacia "muy directo, poco caro"), bastante parecida a MAD-FCO (0,932 — también muy directo pero de precio medio), y casi ortogonal a KEF-MAD (0,100 — apunta para el lado contrario: caro y con escala).
+
+**Reflexión — el umbral de aceptación.**
+Con estos números, un umbral razonable estaría en algo como **0,75-0,80**: por debajo de eso, la dirección del vector ya no comparte lo suficiente con lo que pidió el usuario como para considerarlo una respuesta válida — a 0,10 (el caso de KEF-MAD) el sistema literalmente estaría devolviendo lo opuesto de lo que se buscó. Si ninguna coincidencia supera ese umbral, el sistema no debe forzar el resultado más parecido igual — eso es alucinación por sustitución: mostrar el mejor de los peores como si fuera bueno. Lo correcto es que responda algo del estilo "no tengo una ruta que coincida con eso en el catálogo", que es exactamente lo que se pone a prueba después con el Killer Query #3 de B.6.
+
+**Un límite real, encontrado al probar con más consultas y las 18 rutas completas.**
+Al ampliar las pruebas más allá del ejemplo principal (corriendo varias consultas contra las 18 rutas de la base, no solo contra A, B y C) aparecieron dos problemas que vale la pena documentar en vez de esconder:
+
+1. **Rutas totalmente distintas colapsan en el mismo vector.** `RUTA-BRE-FRA`, `RUTA-KEF-MAD`, `RUTA-DUB-TIA`, `RUTA-MSQ-RIX` y `RUTA-AYT-MMX` — Alemania, Islandia, Albania, Bielorrusia y la ruta más cara del catálogo (2.761€) — dan **1,0000 de similitud entre sí** frente a cualquier consulta, porque con solo 2 ejes de 3 valores posibles cada uno todas caen en el mismo punto `(9, 0)`.
+2. **Un falso positivo perfecto.** La consulta "lujo, sin escalas" (`Q=(9,10)`) obtuvo su similitud más alta (**1,0000**) no con una ruta premium, sino con `RUTA-CDG-MRS` — precio medio y apenas 55,6% directa. Esto ocurre porque la similitud coseno mide **ángulo, no magnitud**: `(5, 5,6)` y `(9, 10)` apuntan casi exactamente para el mismo lado aunque estén en escalas muy distintas, así que el coseno los trata como "iguales" pese a que uno es mediocre en los dos ejes y el otro sería excelente en ambos.
+
+Esto no invalida el ejercicio — al contrario, lo justifica. No es un error de cálculo: es una propiedad matemática real de la similitud coseno (invariante a la escala del vector), agravada acá por usar solo 2 ejes muy toscos hechos a mano. Es la evidencia que respalda dos decisiones de diseño que vienen más adelante: primero, por qué A.4 usa un embedding real de 1.536 dimensiones en vez de ejes armados a mano — con mucha más resolución, este tipo de colisión es mucho menos probable; y segundo, por qué el filtro de metadatos de B.4 no es opcional — si la búsqueda semántica sola puede confundir una ruta mediocre con una de lujo, un umbral de similitud alto no alcanza para blindarse: hace falta el filtro exacto (`categoria_precio`, `vuelo_directo_disponible`) como red de seguridad, el mismo argumento detrás del Killer Query #2 ("el metadato salva el día").
