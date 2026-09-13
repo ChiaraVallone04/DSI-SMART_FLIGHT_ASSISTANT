@@ -158,3 +158,22 @@ $ python pipeline_vectorial.py
 Misma consulta, mismo resultado, cero llamadas a OpenAI: el índice se reconstruye desde los bytes en disco en milisegundos.
 
 **Reflexión.** En producción, si el servidor se reinicia (deploy, crash, escalado) y el índice solo vivía en RAM, hay que regenerar embeddings de toda la base antes de poder responder la primera consulta — tiempo muerto y costo repetido en cada reinicio, y en un catálogo real (miles de documentos, no 18) ese tiempo de arranque en frío deja de ser trivial. El caso de **dos servidores** es peor todavía si cada uno mantiene su propio índice solo en memoria: no solo se paga el costo de generar embeddings dos veces, sino que nada garantiza que ambos índices queden idénticos si la base se actualizó entre una regeneración y la otra — dos instancias respondiendo con "verdades" ligeramente distintas. Persistir en disco (y, mejor todavía, en un storage compartido entre instancias) es lo que evita que la disponibilidad del servicio dependa de que la RAM de un proceso nunca se reinicie.
+
+---
+
+## Parte B — ChromaDB, Filtrado Híbrido y ETL (Clase 5)
+
+### B.1 — Migración a ChromaDB
+
+Código completo: [`vector_db.py`](vector_db.py).
+
+**Qué hace el script.** El script carga la misma base de A.3 (`base_conocimiento.json`, 18 rutas) en una colección de ChromaDB. Se utiliza `chromadb.PersistentClient(path="chroma_db")`, no `Client()` volátil, de modo que la colección persiste ante un reinicio del proceso. A diferencia del índice de FAISS de A.4, no es necesario mantener un `ids.json` auxiliar: ChromaDB almacena el ID, el documento y los metadatos como un único objeto atómico. La colección se crea con `metadata={"hnsw:space": "cosine"}`, la misma métrica de similitud empleada a mano en A.2 y mediante vectores normalizados en A.4. Para la generación de embeddings se reutiliza el modelo de A.4 (`text-embedding-3-small`, a través de `OpenAIEmbeddingFunction` de ChromaDB), de manera que la colección queda ubicada en el mismo espacio vectorial que el índice de FAISS. La carga se realiza con `coleccion.upsert(...)`, no `add`, para permitir re-ejecutar el script sin duplicar registros cuando `base_conocimiento.json` no cambió.
+
+**Verificación.** El script se ejecutó en cinco corridas consecutivas, con salida idéntica en todas:
+
+```
+$ python vector_db.py
+Colección 'vuelos_smart_flight_assistant' actualizada: 18 rutas indexadas.
+```
+
+`coleccion.count()` se mantuvo en 18 en las cinco corridas: el `upsert` sobrescribió los IDs existentes en lugar de duplicarlos en cada ejecución. El directorio `chroma_db/` generado queda excluido del control de versiones (`.gitignore`); la fuente de verdad continúa siendo `base_conocimiento.json`, desde donde la colección se reconstruye por completo.
