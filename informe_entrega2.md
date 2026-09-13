@@ -320,3 +320,11 @@ En ingeniería de datos y RAG, cuando hay duda entre eliminar un dato o conserva
 
 
 Un SELECT DISTINCT no habría encontrado estos duplicados porque realiza una comparación de texto literal, evaluando cadenas exactas, por lo que redactar la misma idea con distintas palabras lo toma como registros diferentes. Además, al tener identificadores distintos (id), la base de datos los considera filas independientes, y cualquier variación en las claves o tipos de datos rompe la coincidencia exacta a nivel de bytes.
+
+---
+
+### B.6 — Killer Queries
+
+Se diseñaron y ejecutaron tres Killer Queries contra la colección ya purgada de ChromaDB (21 rutas). Cada consulta se resuelve en dos pasos: primero recuperación semántica sobre la colección (con o sin filtro `where` nativo, según el caso), y luego el contexto recuperado se pasa a `gpt-4o-mini` (temperatura 0) con un system prompt que lo instruye explícitamente a responder solo con lo que está en el contexto, y a admitir cuando no dispone de la información en vez de inventarla.
+
+La tabla con las tres consultas, qué pone a prueba cada una, el resultado esperado vs. el real, y el log íntegro de la ejecución (IDs recuperados y respuesta del LLM) está en [`resultados_killer_queries.md`](resultados_killer_queries.md). Las tres pasaron: la Query 1 confirma que la búsqueda semántica reconoce jerga ("puente aéreo", "laburar") sin que esas palabras estén en el documento; la Query 2 confirma que el filtro exacto por metadato bloquea lo que la búsqueda semántica sola podría confundir, el mismo argumento ya documentado en B.2 y en el falso positivo de A.4 con `RUTA-OSL-TLL`; y la Query 3 confirma que, aunque ChromaDB siempre devuelve los vecinos más cercanos aunque no haya match real (`RUTA-OSL-TLL`, `RUTA-ATH-LHR`, `RUTA-BGY-BVA`), el LLM reconoce que ninguno responde la pregunta en vez de alucinar con el más parecido, tal como se había anticipado en la reflexión del umbral de A.2.
