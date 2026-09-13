@@ -328,3 +328,21 @@ Un SELECT DISTINCT no habría encontrado estos duplicados porque realiza una com
 Se diseñaron y ejecutaron tres Killer Queries contra la colección ya purgada de ChromaDB (21 rutas). Cada consulta se resuelve en dos pasos: primero recuperación semántica sobre la colección (con o sin filtro `where` nativo, según el caso), y luego el contexto recuperado se pasa a `gpt-4o-mini` (temperatura 0) con un system prompt que lo instruye explícitamente a responder solo con lo que está en el contexto, y a admitir cuando no dispone de la información en vez de inventarla.
 
 La tabla con las tres consultas, qué pone a prueba cada una, el resultado esperado vs. el real, y el log íntegro de la ejecución (IDs recuperados y respuesta del LLM) está en [`resultados_killer_queries.md`](resultados_killer_queries.md). Las tres pasaron: la Query 1 confirma que la búsqueda semántica reconoce jerga ("puente aéreo", "laburar") sin que esas palabras estén en el documento; la Query 2 confirma que el filtro exacto por metadato bloquea lo que la búsqueda semántica sola podría confundir, el mismo argumento ya documentado en B.2 y en el falso positivo de A.4 con `RUTA-OSL-TLL`; y la Query 3 confirma que, aunque ChromaDB siempre devuelve los vecinos más cercanos aunque no haya match real (`RUTA-OSL-TLL`, `RUTA-ATH-LHR`, `RUTA-BGY-BVA`), el LLM reconoce que ninguno responde la pregunta en vez de alucinar con el más parecido, tal como se había anticipado en la reflexión del umbral de A.2.
+
+---
+
+## Parte C — Coherencia e Informe
+
+### C.1 — Cadena de coherencia con la Entrega 1
+
+| Elemento de la Entrega 1 (`informe.md`) | Cómo se implementa en la Entrega 2 |
+|---|---|
+| Columna "Base de Conocimiento" del PEAS, sección A.3 (entrega 1) | ← la colección ChromaDB `vuelos_smart_flight_assistant` con los 21 documentos de rutas, sección B.5 (entrega 2) |
+| Campos de filtrado de la Matriz de Intenciones, sección B.3 (entrega 1) | ← los metadatos de la base (`origen`, `destino`, `vuelo_directo_disponible`, `categoria_precio`), sección A.3 (entrega 2) |
+| Parámetros que el LLM extraía del `texto_libre` sección B.5 (entrega 1) | ← el destino del filtro cambia: de `WHERE` SQL a `where` nativo de ChromaDB. La extracción vía LLM desde `texto_libre` no está implementada, dado que los scripts reciben el filtro armado a mano, secciones B.4 y B.6 (entrega 2). |
+
+El PEAS marcaba la Base de Conocimiento como *"Todavía sin base vectorial ni datos en vivo"* — acá se cubre ese hueco.
+
+Los campos de filtrado se mantienen, solo cambia dónde se aplican: antes en el `WHERE` de SQL, ahora como metadatos nativos de ChromaDB. Excepción: `fecha_desde`/`fecha_hasta` siguen en el SQL transaccional, sin equivalente en la base vectorial (mismo motivo por el que la base es por ruta y no por fila).
+
+La "Regla de oro" (*"en ningún caso el LLM toma decisiones... eso lo calcula siempre el backend"*) sigue aplicando al destino del filtro, pero acá llega armado a mano, no derivado de un LLM parseando el `texto_libre`.
