@@ -253,7 +253,7 @@ Aplicar el filtrado de metadatos dentro de ChromaDB previo al cálculo de simili
 
 
 ### B.5 — ETL y purga semántica
-Para validar la solidez del pipeline ante datos inconsistentes y redundantes, se introdujeron 6 registros de prueba sucios en la base de conocimiento (base_conocimiento.json), elevando temporalmente el total inicial a 24 registros:
+Para validar la solidez del pipeline ante datos inconsistentes y redundantes, se introdujeron 5 registros de prueba sucios en la base de conocimiento (base_conocimiento.json), elevando temporalmente el total inicial a 23 registros:
 
 RUTA-MAD-FCO-DUP-JERGA: Misma información de Madrid–Roma, pero escrita en lenguaje informal.
 
@@ -265,15 +265,15 @@ RUTA-TEST-CLAVE-INCORRECTA: Ruta de prueba (Bilbao–Málaga) con el nombre de u
 
 RUTA-TEST-BOOL-STRING: Ruta de prueba (Valencia–Palma) con un tipo de dato inconsistente ("True" como texto en lugar del booleano true).
 
-RUTA-MAD-FCO (id duplicado a propósito): Registro de una ruta distinta (Bilbao–Sevilla) cargado a mano con el mismo `id` que la ruta real Madrid–Roma, para poner a prueba la resolución de colisión de IDs que exige la consigna.
+Adicionalmente, `etl_purga.py` simula en tiempo de ejecución una **segunda fuente de datos** (por ejemplo, otro proveedor o scraper) que reutiliza el ID `RUTA-TEST-CLAVE-INCORRECTA` para un registro de contenido distinto (ruta Sevilla–Oporto). Este registro no se persiste en `base_conocimiento.json` —solo vive dentro del script— para no romper el `upsert` de `vector_db.py` (B.1), que exige IDs únicos dentro de una misma llamada; en cambio, `etl_purga.py` sí puede resolverlo porque normaliza en memoria antes de tocar ChromaDB. Con este registro, el total procesado por el ETL sube a 24.
 
-**Resolución de colisión de IDs.** El bloque `ids_vistos` de `etl_purga.py` detecta cuando un `id` ya fue visto en una pasada anterior del ETL y le agrega el sufijo `_dup` antes de seguir procesando, en vez de dejar que el segundo registro pise al primero en silencio. La corrida sobre los 24 registros (con el caso de prueba de arriba) lo confirma en la consola:
+**Resolución de colisión de IDs.** El bloque `ids_vistos` de `etl_purga.py` detecta cuando un `id` ya fue visto en una pasada anterior del ETL y le agrega el sufijo `_dup` antes de seguir procesando, en vez de dejar que el segundo registro pise al primero en silencio. La corrida sobre los 24 registros lo confirma en la consola:
 
 ```text
-[COLISIÓN DE ID DETECTADA] 'RUTA-MAD-FCO' ya existía en la base -> renombrado a 'RUTA-MAD-FCO_dup' para no sobrescribir el registro original.
+[COLISIÓN DE ID DETECTADA] 'RUTA-TEST-CLAVE-INCORRECTA' ya existía en la base -> renombrado a 'RUTA-TEST-CLAVE-INCORRECTA_dup' para no sobrescribir el registro original.
 ```
 
-`RUTA-MAD-FCO` (la ruta real Madrid–Roma) conserva su ID original; el registro de prueba de Bilbao–Sevilla queda indexado como `RUTA-MAD-FCO_dup`. La purga semántica que sigue confirma que este renombre no fue una coincidencia con la deduplicación por contenido: `RUTA-MAD-FCO_dup` no aparece en ninguno de los pares detectados más abajo, es decir, sobrevive intacto porque su texto (Bilbao–Sevilla) no tiene nada que ver semánticamente con Madrid–Roma — la colisión era puramente de `id`, no de contenido duplicado, y el pipeline la resuelve como un problema distinto al que ataca la purga por distancia coseno.
+`RUTA-TEST-CLAVE-INCORRECTA` (el registro original, de la clave mal nombrada) conserva su ID; el registro simulado de la segunda fuente (Sevilla–Oporto) queda indexado como `RUTA-TEST-CLAVE-INCORRECTA_dup`. Se verificó con `coleccion.get(ids=["RUTA-TEST-CLAVE-INCORRECTA", "RUTA-TEST-CLAVE-INCORRECTA_dup"])` que ambos registros conviven en la base final sin pisarse. La purga semántica que sigue confirma que este renombre no fue una coincidencia con la deduplicación por contenido: `RUTA-TEST-CLAVE-INCORRECTA_dup` no aparece en ninguno de los pares detectados más abajo, es decir, sobrevive intacto porque su texto (Sevilla–Oporto) no tiene nada que ver semánticamente con el original — la colisión era puramente de `id`, no de contenido duplicado, y el pipeline la resuelve como un problema distinto al que ataca la purga por distancia coseno.
 
 
 **Justificación del umbral de distancia coseno (0.20)**
@@ -290,17 +290,17 @@ Se utilizó text-embedding-3-small fijando un umbral de 0.20 para balancear la d
 La ejecución del script arrojó el siguiente log de consola (umbral 0.20):
 ```text
 Total registros cargados iniciales: 24
-[COLISIÓN DE ID DETECTADA] 'RUTA-MAD-FCO' ya existía en la base -> renombrado a 'RUTA-MAD-FCO_dup' para no sobrescribir el registro original.
+[COLISIÓN DE ID DETECTADA] 'RUTA-TEST-CLAVE-INCORRECTA' ya existía en la base -> renombrado a 'RUTA-TEST-CLAVE-INCORRECTA_dup' para no sobrescribir el registro original.
 Registros tras normalización ETL: 24
 
 Se eliminaron 2 casi-duplicados semánticos.
 Total registros finales purgados: 22
 
-[PURGA DETECTADA - Distancia: 0.1599]
+[PURGA DETECTADA - Distancia: 0.1598]
   - Mantener (RUTA-MAD-FCO): La ruta Madrid–Roma (MAD–FCO) es una de las más transitadas del catálogo, con más de 1.400 vuelos re...
   - Eliminar (RUTA-MAD-FCO-DUP-JERGA): El trayecto entre Madrid Barajas y Roma Fiumicino posee alta demanda para viajes cortos a Italia o E...
 
-[PURGA DETECTADA - Distancia: 0.1509]
+[PURGA DETECTADA - Distancia: 0.1512]
   - Mantener (RUTA-BGY-BVA): La ruta Bérgamo–París Beauvais (BGY–BVA) es la más barata de todo el catálogo, con una mediana de ap...
   - Eliminar (RUTA-BGY-BVA-DUP-CONCEPTUAL): Ruta súper barata operada por Ryanair conectando Bérgamo y Beauvais (aeropuertos secundarios de Milá...
 
@@ -308,11 +308,11 @@ Total registros finales purgados: 22
 ```
 
 
-**Limpieza ETL**: Normalizó con éxito la clave is_direct → vuelo_directo_disponible, convirtió la cadena "True" al booleano true, y resolvió la colisión de ID entre la ruta real RUTA-MAD-FCO y el registro de prueba con el mismo id, renombrando a este último a RUTA-MAD-FCO_dup.
+**Limpieza ETL**: Normalizó con éxito la clave is_direct → vuelo_directo_disponible, convirtió la cadena "True" al booleano true, y resolvió la colisión de ID entre `RUTA-TEST-CLAVE-INCORRECTA` y el registro simulado de la segunda fuente con el mismo id, renombrando a este último a `RUTA-TEST-CLAVE-INCORRECTA_dup`.
 
-**Purga semántica**: Eliminó los 2 casi-duplicados de menor distancia (RUTA-MAD-FCO-DUP-JERGA a 0.1599 y RUTA-BGY-BVA-DUP-CONCEPTUAL a 0.1509).
+**Purga semántica**: Eliminó los 2 casi-duplicados de menor distancia (RUTA-MAD-FCO-DUP-JERGA a 0.1598 y RUTA-BGY-BVA-DUP-CONCEPTUAL a 0.1512).
 
-**Resultado final**: La base final consta de 22 registros. Se conservaron las 2 rutas de prueba (BIO-AGP y VLC-PMI) corregidas por el ETL por no presentar redundancia con ninguna otra ruta, el registro de prueba RUTA-MAD-FCO_dup sobrevivió intacto al resolverse como colisión de ID y no como duplicado semántico, mientras que RUTA-BCN-MAD-DUP-TEXTO (0.2138) se mantuvo al situarse por encima del umbral de corte definido para priorizar la precisión del catálogo y evitar falsos positivos.
+**Resultado final**: La base final consta de 22 registros. Se conservaron las 2 rutas de prueba (BIO-AGP y VLC-PMI) corregidas por el ETL, y el registro de la colisión de ID (`RUTA-TEST-CLAVE-INCORRECTA_dup`) por no presentar redundancia semántica con ninguna otra ruta, mientras que RUTA-BCN-MAD-DUP-TEXTO (0.2138) se mantuvo al situarse por encima del umbral de corte definido para priorizar la precisión del catálogo y evitar falsos positivos.
 
 
 

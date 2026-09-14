@@ -12,6 +12,26 @@ load_dotenv(override=True)
 with open("base_conocimiento.json", "r", encoding="utf-8") as f:
     datos_sucios = json.load(f)
 
+# simulación de una segunda fuente de datos (ej. otro proveedor/scraper) que
+# reutiliza el mismo ID de un registro ya cargado, con contenido distinto —
+# no se agrega a base_conocimiento.json para no romper el upsert de vector_db.py,
+# que exige IDs únicos dentro de una misma llamada
+registro_fuente_2 = {
+    "id": "RUTA-TEST-CLAVE-INCORRECTA",
+    "descripcion_semantica": "Segundo registro, de una fuente distinta, que reutiliza el mismo ID de un registro ya cargado — simula la fusión de catálogos de dos proveedores.",
+    "metadatos": {
+        "origen": "SVQ",
+        "destino": "OPO",
+        "pais_origen": "España",
+        "pais_destino": "Portugal",
+        "vuelo_directo_disponible": True,
+        "tipo_aerolinea_dominante": "low-cost",
+        "categoria_precio": "económico",
+        "tags_regionales": ["prueba", "colisión de id"],
+    },
+}
+datos_sucios.append(registro_fuente_2)
+
 print(f"Total registros cargados iniciales: {len(datos_sucios)}")
 
 # etl tradicional (normalización de claves y tipos)

@@ -324,19 +324,5 @@
       "categoria_precio": "económico",
       "tags_regionales": ["prueba"]
     }
-  },
-  {
-    "id": "RUTA-MAD-FCO",
-    "descripcion_semantica": "Ruta de prueba para verificar la resolución de colisión de IDs en el pipeline ETL: este registro reutiliza a propósito el id 'RUTA-MAD-FCO', ya asignado a la ruta real Madrid-Roma, pero con contenido de una ruta distinta (Bilbao-Sevilla) para comprobar que el ETL detecta la colisión y le asigna un id único en vez de sobrescribir en silencio el registro original.",
-    "metadatos": {
-      "origen": "BIO",
-      "destino": "SVQ",
-      "pais_origen": "España",
-      "pais_destino": "España",
-      "vuelo_directo_disponible": true,
-      "tipo_aerolinea_dominante": "low-cost",
-      "categoria_precio": "económico",
-      "tags_regionales": ["prueba", "colisión de id"]
-    }
   }
 ]
