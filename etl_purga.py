@@ -47,8 +47,13 @@ for item_raw in datos_sucios:
     # resolver colisión de ids (si hay ids duplicados con distinto contenido)
     item_id = item["id"]
     if item_id in ids_vistos:
+        id_original = item_id
         item_id = f"{item_id}_dup"
         item["id"] = item_id
+        print(
+            f"[COLISIÓN DE ID DETECTADA] '{id_original}' ya existía en la base "
+            f"-> renombrado a '{item_id}' para no sobrescribir el registro original."
+        )
     ids_vistos.add(item_id)
 
     item["metadatos"] = meta

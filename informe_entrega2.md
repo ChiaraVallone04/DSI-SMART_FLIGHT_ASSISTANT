@@ -253,7 +253,7 @@ Aplicar el filtrado de metadatos dentro de ChromaDB previo al cálculo de simili
 
 
 ### B.5 — ETL y purga semántica
-Para validar la solidez del pipeline ante datos inconsistentes y redundantes, se introdujeron 5 registros de prueba sucios en la base de conocimiento (base_conocimiento.json), elevando temporalmente el total inicial a 23 registros:
+Para validar la solidez del pipeline ante datos inconsistentes y redundantes, se introdujeron 6 registros de prueba sucios en la base de conocimiento (base_conocimiento.json), elevando temporalmente el total inicial a 24 registros:
 
 RUTA-MAD-FCO-DUP-JERGA: Misma información de Madrid–Roma, pero escrita en lenguaje informal.
 
@@ -264,6 +264,16 @@ RUTA-BGY-BVA-DUP-CONCEPTUAL: Resumen en otras palabras de la ruta Bérgamo–Bea
 RUTA-TEST-CLAVE-INCORRECTA: Ruta de prueba (Bilbao–Málaga) con el nombre de un campo mal escrito (is_direct en vez de vuelo_directo_disponible).
 
 RUTA-TEST-BOOL-STRING: Ruta de prueba (Valencia–Palma) con un tipo de dato inconsistente ("True" como texto en lugar del booleano true).
+
+RUTA-MAD-FCO (id duplicado a propósito): Registro de una ruta distinta (Bilbao–Sevilla) cargado a mano con el mismo `id` que la ruta real Madrid–Roma, para poner a prueba la resolución de colisión de IDs que exige la consigna.
+
+**Resolución de colisión de IDs.** El bloque `ids_vistos` de `etl_purga.py` detecta cuando un `id` ya fue visto en una pasada anterior del ETL y le agrega el sufijo `_dup` antes de seguir procesando, en vez de dejar que el segundo registro pise al primero en silencio. La corrida sobre los 24 registros (con el caso de prueba de arriba) lo confirma en la consola:
+
+```text
+[COLISIÓN DE ID DETECTADA] 'RUTA-MAD-FCO' ya existía en la base -> renombrado a 'RUTA-MAD-FCO_dup' para no sobrescribir el registro original.
+```
+
+`RUTA-MAD-FCO` (la ruta real Madrid–Roma) conserva su ID original; el registro de prueba de Bilbao–Sevilla queda indexado como `RUTA-MAD-FCO_dup`. La purga semántica que sigue confirma que este renombre no fue una coincidencia con la deduplicación por contenido: `RUTA-MAD-FCO_dup` no aparece en ninguno de los pares detectados más abajo, es decir, sobrevive intacto porque su texto (Bilbao–Sevilla) no tiene nada que ver semánticamente con Madrid–Roma — la colisión era puramente de `id`, no de contenido duplicado, y el pipeline la resuelve como un problema distinto al que ataca la purga por distancia coseno.
 
 
 **Justificación del umbral de distancia coseno (0.20)**
@@ -279,29 +289,30 @@ Se utilizó text-embedding-3-small fijando un umbral de 0.20 para balancear la d
 
 La ejecución del script arrojó el siguiente log de consola (umbral 0.20):
 ```text
-Total registros cargados iniciales: 23
-Registros tras normalización ETL: 23
+Total registros cargados iniciales: 24
+[COLISIÓN DE ID DETECTADA] 'RUTA-MAD-FCO' ya existía en la base -> renombrado a 'RUTA-MAD-FCO_dup' para no sobrescribir el registro original.
+Registros tras normalización ETL: 24
 
 Se eliminaron 2 casi-duplicados semánticos.
-Total registros finales purgados: 21
+Total registros finales purgados: 22
 
-[PURGA DETECTADA - Distancia: 0.1598]
+[PURGA DETECTADA - Distancia: 0.1599]
   - Mantener (RUTA-MAD-FCO): La ruta Madrid–Roma (MAD–FCO) es una de las más transitadas del catálogo, con más de 1.400 vuelos re...
   - Eliminar (RUTA-MAD-FCO-DUP-JERGA): El trayecto entre Madrid Barajas y Roma Fiumicino posee alta demanda para viajes cortos a Italia o E...
 
-[PURGA DETECTADA - Distancia: 0.1512]
+[PURGA DETECTADA - Distancia: 0.1509]
   - Mantener (RUTA-BGY-BVA): La ruta Bérgamo–París Beauvais (BGY–BVA) es la más barata de todo el catálogo, con una mediana de ap...
   - Eliminar (RUTA-BGY-BVA-DUP-CONCEPTUAL): Ruta súper barata operada por Ryanair conectando Bérgamo y Beauvais (aeropuertos secundarios de Milá...
 
-  ¡ChromaDB actualizada con éxito! Total indexados: 21
+¡ChromaDB actualizada con éxito! Total indexados: 22
 ```
 
 
-**Limpieza ETL**: Normalizó con éxito la clave is_direct → vuelo_directo_disponible y convirtió la cadena "True" al booleano true.
+**Limpieza ETL**: Normalizó con éxito la clave is_direct → vuelo_directo_disponible, convirtió la cadena "True" al booleano true, y resolvió la colisión de ID entre la ruta real RUTA-MAD-FCO y el registro de prueba con el mismo id, renombrando a este último a RUTA-MAD-FCO_dup.
 
-**Purga semántica**: Eliminó los 2 casi-duplicados de menor distancia (RUTA-MAD-FCO-DUP-JERGA a 0.1598 y RUTA-BGY-BVA-DUP-CONCEPTUAL a 0.1512).
+**Purga semántica**: Eliminó los 2 casi-duplicados de menor distancia (RUTA-MAD-FCO-DUP-JERGA a 0.1599 y RUTA-BGY-BVA-DUP-CONCEPTUAL a 0.1509).
 
-**Resultado final**: La base final consta de 21 registros. Se conservaron las 2 rutas de prueba (BIO-AGP y VLC-PMI) corregidas por el ETL por no presentar redundancia con ninguna otra ruta, mientras que RUTA-BCN-MAD-DUP-TEXTO (0.2138) se mantuvo al situarse por encima del umbral de corte definido para priorizar la precisión del catálogo y evitar falsos positivos.
+**Resultado final**: La base final consta de 22 registros. Se conservaron las 2 rutas de prueba (BIO-AGP y VLC-PMI) corregidas por el ETL por no presentar redundancia con ninguna otra ruta, el registro de prueba RUTA-MAD-FCO_dup sobrevivió intacto al resolverse como colisión de ID y no como duplicado semántico, mientras que RUTA-BCN-MAD-DUP-TEXTO (0.2138) se mantuvo al situarse por encima del umbral de corte definido para priorizar la precisión del catálogo y evitar falsos positivos.
 
 
 
@@ -325,7 +336,7 @@ Un SELECT DISTINCT no habría encontrado estos duplicados porque realiza una com
 
 ### B.6 — Killer Queries
 
-Se diseñaron y ejecutaron tres Killer Queries contra la colección ya purgada de ChromaDB (21 rutas). Cada consulta se resuelve en dos pasos: primero recuperación semántica sobre la colección (con o sin filtro `where` nativo, según el caso), y luego el contexto recuperado se pasa a `gpt-4o-mini` (temperatura 0) con un system prompt que lo instruye explícitamente a responder solo con lo que está en el contexto, y a admitir cuando no dispone de la información en vez de inventarla.
+Se diseñaron y ejecutaron tres Killer Queries contra la colección ya purgada de ChromaDB (22 rutas, incluyendo los registros de prueba de B.5 que sobrevivieron la purga por no ser duplicados semánticos). Cada consulta se resuelve en dos pasos: primero recuperación semántica sobre la colección (con o sin filtro `where` nativo, según el caso), y luego el contexto recuperado se pasa a `gpt-4o-mini` (temperatura 0) con un system prompt que lo instruye explícitamente a responder solo con lo que está en el contexto, y a admitir cuando no dispone de la información en vez de inventarla.
 
 La tabla con las tres consultas, qué pone a prueba cada una, el resultado esperado vs. el real, y el log íntegro de la ejecución (IDs recuperados y respuesta del LLM) está en [`resultados_killer_queries.md`](resultados_killer_queries.md). Las tres pasaron: la Query 1 confirma que la búsqueda semántica reconoce jerga ("puente aéreo", "laburar") sin que esas palabras estén en el documento; la Query 2 confirma que el filtro exacto por metadato bloquea lo que la búsqueda semántica sola podría confundir, el mismo argumento ya documentado en B.2 y en el falso positivo de A.4 con `RUTA-OSL-TLL`; y la Query 3 confirma que, aunque ChromaDB siempre devuelve los vecinos más cercanos aunque no haya match real (`RUTA-OSL-TLL`, `RUTA-ATH-LHR`, `RUTA-BGY-BVA`), el LLM reconoce que ninguno responde la pregunta en vez de alucinar con el más parecido, tal como se había anticipado en la reflexión del umbral de A.2.
 
@@ -337,7 +348,7 @@ La tabla con las tres consultas, qué pone a prueba cada una, el resultado esper
 
 | Elemento de la Entrega 1 (`informe.md`) | Cómo se implementa en la Entrega 2 |
 |---|---|
-| Columna "Base de Conocimiento" del PEAS, sección A.3 (entrega 1) | ← la colección ChromaDB `vuelos_smart_flight_assistant` con los 21 documentos de rutas, sección B.5 (entrega 2) |
+| Columna "Base de Conocimiento" del PEAS, sección A.3 (entrega 1) | ← la colección ChromaDB `vuelos_smart_flight_assistant` con los 22 documentos de rutas, sección B.5 (entrega 2) |
 | Campos de filtrado de la Matriz de Intenciones, sección B.3 (entrega 1) | ← los metadatos de la base (`origen`, `destino`, `vuelo_directo_disponible`, `categoria_precio`), sección A.3 (entrega 2) |
 | Parámetros que el LLM extraía del `texto_libre` sección B.5 (entrega 1) | ← el destino del filtro cambia: de `WHERE` SQL a `where` nativo de ChromaDB. La extracción vía LLM desde `texto_libre` no está implementada, dado que los scripts reciben el filtro armado a mano, secciones B.4 y B.6 (entrega 2). |
 
