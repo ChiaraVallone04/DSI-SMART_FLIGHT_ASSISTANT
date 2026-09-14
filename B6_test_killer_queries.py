@@ -1,8 +1,8 @@
 import os
-import chromadb
-from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
 from openai import OpenAI
+
+from vector_db import obtener_coleccion
 
 load_dotenv(override=True)
 
@@ -10,15 +10,8 @@ load_dotenv(override=True)
 api_key = os.getenv("OPENAI_API_KEY")
 client_openai = OpenAI(api_key=api_key)
 
-openai_ef = embedding_functions.OpenAIEmbeddingFunction(
-    api_key=api_key, model_name="text-embedding-3-small"
-)
-
 # cargar colección de ChromaDB
-chroma_client = chromadb.PersistentClient(path="./chroma_db")
-col = chroma_client.get_collection(
-    name="vuelos_smart_flight_assistant", embedding_function=openai_ef
-)
+col = obtener_coleccion()
 
 
 def ejecutar_rag(query, where_filter=None, n_results=3):

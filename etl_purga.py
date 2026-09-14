@@ -1,10 +1,9 @@
 import copy
 import json
-import os
-import chromadb
-from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
 import numpy as np
+
+from vector_db import funcion_embedding, obtener_coleccion
 
 load_dotenv(override=True)
 
@@ -82,10 +81,7 @@ for item_raw in datos_sucios:
 print(f"Registros tras normalización ETL: {len(datos_normalizados)}")
 
 # purga semántica mediante vectorización y distancia coseno
-api_key = os.getenv("OPENAI_API_KEY")
-openai_ef = embedding_functions.OpenAIEmbeddingFunction(
-    api_key=api_key, model_name="text-embedding-3-small"
-)
+openai_ef = funcion_embedding
 
 # genera embeddings y asegura formato numpy array
 textos = [d["descripcion_semantica"] for d in datos_normalizados]
@@ -152,13 +148,7 @@ for par in pares_detectados:
     )
 
 # indexación automática en ChromaDB
-chroma_client = chromadb.PersistentClient(path="./chroma_db")
-
-col = chroma_client.get_or_create_collection(
-    name="vuelos_smart_flight_assistant",
-    embedding_function=openai_ef,
-    metadata={"hnsw:space": "cosine"},
-)
+col = obtener_coleccion()
 
 # eliminar de la colección los IDs detectados como casi-duplicados
 ids_eliminados = [datos_normalizados[i]["id"] for i in indices_a_eliminar]
