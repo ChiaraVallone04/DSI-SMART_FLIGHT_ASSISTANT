@@ -129,18 +129,19 @@ for par in pares_detectados:
 # indexación automática en ChromaDB
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
 
-# Si la colección ya existe, la eliminamos para recrearla limpia con los 21 registros
-try:
-    chroma_client.delete_collection("vuelos_smart_flight_assistant")
-except Exception:
-    pass
-
-col = chroma_client.create_collection(
-    name="vuelos_smart_flight_assistant", embedding_function=openai_ef
+col = chroma_client.get_or_create_collection(
+    name="vuelos_smart_flight_assistant",
+    embedding_function=openai_ef,
+    metadata={"hnsw:space": "cosine"},
 )
 
-# insertar los registros purgados
-col.add(
+# eliminar de la colección los IDs detectados como casi-duplicados
+ids_eliminados = [datos_normalizados[i]["id"] for i in indices_a_eliminar]
+if ids_eliminados:
+    col.delete(ids=ids_eliminados)
+
+# upsert de los registros purgados (permite re-ejecutar sin duplicar)
+col.upsert(
     documents=[d["descripcion_semantica"] for d in datos_purgados],
     metadatas=[d["metadatos"] for d in datos_purgados],
     ids=[d["id"] for d in datos_purgados],
