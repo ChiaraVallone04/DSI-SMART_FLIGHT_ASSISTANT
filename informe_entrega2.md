@@ -352,3 +352,15 @@ La "Regla de oro" (*"en ningún caso el LLM toma decisiones... eso lo calcula si
 ### C.2 — El umbral de aceptación
 
 En A.2 se estimó un umbral teórico de similitud coseno de 0.75-0.80, sobre el ejercicio de 2 ejes hecho a mano. Sin embargo, ese número no está implementado como corte numérico en el código de recuperación: los embeddings reales de 1536 dimensiones dan similitudes máximas más bajas en la práctica (0.43-0.57 en las pruebas de A.4), por lo que un corte fijo de 0.75 rechazaría incluso las mejores coincidencias reales del catálogo. El comportamiento correcto se logra en cambio por el system prompt del LLM generador (B.6), instruido a responder solo con el contexto recuperado y admitir la falta de información en vez de inventar. Prueba de esto es el Killer Query #3: ante una consulta sobre una ruta fuera del catálogo (Buenos Aires-Tokio), ChromaDB devuelve sus 3 vecinos más cercanos por default, pero el LLM reconoce que ninguno responde la pregunta y contesta "No dispongo de esa información en el catálogo" en vez de forzar el más parecido.
+
+---
+
+### C.3 — Cierre: qué falta para una respuesta real al usuario
+
+`buscar_vuelos()` de B4_busqueda_hibrida.py devuelve el diccionario crudo que entrega `coleccion.query()`: `ids`, `documents`, `metadatas` y `distances` de ChromaDB, sin traducir a lenguaje natural. Es el mismo punto de corte que ya se había señalado en C.5 de la Entrega 1 ("le falta la Base de Conocimiento"): esa base ya existe (Parte A y B de esta entrega), pero el eslabón que falta ahora es el siguiente, no el mismo.
+
+B6_test_killer_queries.py prototipa a mano el paso que le falta a B.4: toma el `documents` recuperado, lo concatena como `contexto` y se lo pasa a `gpt-4o-mini` junto con un system prompt para que redacte la respuesta en español en vez de exponer el JSON. Pero lo hace con la `query` y el `where_filter` de cada Killer Query hardcodeados en el propio script (ver `ejecutar_rag(...)` en B6) — es un caso de prueba fijado a mano, no un flujo genérico que reciba el `texto_libre` de cualquier usuario.
+
+Falta el **orquestador RAG con LangChain** (Unidad 4, próxima entrega): el componente que tome el `texto_libre` de una consulta real, decida qué filtro `where` armar y con qué texto llamar a `coleccion.query()` (hoy decidido por quien invoca la función a mano), dispare la recuperación híbrida de B.4 y encadene el resultado con un LLM que redacte la respuesta final — lo que B.6 ya prueba de forma manual y aislada por consulta, convertido en un pipeline único y reutilizable.
+
+---
