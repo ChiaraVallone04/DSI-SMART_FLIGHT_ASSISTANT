@@ -27,14 +27,10 @@ Los scripts de esta entrega leen y reconstruyen todo a partir de `base_conocimie
 
 1. **`python pipeline_vectorial.py`** (A.4) — genera embeddings de `base_conocimiento.json` y construye/persiste el índice FAISS en `faiss_index/`. Si el índice ya existe y coincide con el dataset, se recarga desde disco sin llamar a la API. Corre 3 consultas de prueba y muestra el top-3 con su similitud.
 
-2. **`python vector_db.py`** (B.1) — carga la misma base en una colección ChromaDB persistente (`chroma_db/`), con `upsert` para poder re-ejecutar sin duplicar.
+2. **`python vector_db.py`** (B.1–B.4) — carga la base en una colección ChromaDB persistente (`chroma_db/`) con `upsert`; simula un cambio de estado en caliente sobre `RUTA-KEF-MAD` verificado con `coleccion.get()` (B.3); y corre 3 pruebas de búsqueda híbrida (semántica + filtro `where` nativo por metadatos, B.4).
 
-3. **`python B3_evento_caliente.py`** (B.3) — simula un cambio de estado en caliente sobre `RUTA-KEF-MAD` y verifica el resultado con `coleccion.get()`.
+3. **`python etl_purga.py`** (B.5) — normaliza claves/tipos inconsistentes, resuelve colisión de IDs, detecta y elimina casi-duplicados semánticos por umbral de distancia coseno, y reconstruye la colección de ChromaDB ya purgada.
 
-4. **`python B4_busqueda_hibrida.py`** (B.4) — corre 3 pruebas de búsqueda híbrida (semántica + filtro `where` nativo por metadatos).
-
-5. **`python etl_purga.py`** (B.5) — normaliza claves/tipos inconsistentes, resuelve colisión de IDs, detecta y elimina casi-duplicados semánticos por umbral de distancia coseno, y reconstruye la colección de ChromaDB ya purgada.
-
-6. **`python B6_test_killer_queries.py`** (B.6) — corre las 3 Killer Queries contra la colección purgada y genera el contexto + respuesta del LLM (ver resultados en [`resultados_killer_queries.md`](resultados_killer_queries.md)).
+4. **`python B6_test_killer_queries.py`** (B.6) — corre las 3 Killer Queries contra la colección purgada y genera el contexto + respuesta del LLM (ver resultados en [`resultados_killer_queries.md`](resultados_killer_queries.md)).
 
 El detalle narrativo completo (justificaciones, capturas, reflexiones) está en [`informe_entrega2.md`](informe_entrega2.md). `faiss_index/` y `chroma_db/` no se versionan (`.gitignore`): se reconstruyen enteros desde `base_conocimiento.json` corriendo los pasos de arriba.

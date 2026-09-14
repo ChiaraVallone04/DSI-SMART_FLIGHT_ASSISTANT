@@ -199,7 +199,7 @@ Para simular una actualización operativa en tiempo real, se modificó el estado
 
 ### Evidencia de Ejecución en Caliente
 
-Se ejecutó el script `B3_evento_caliente.py` verificando la inserción/actualización mediante el método `upsert` y la posterior consulta directa a la base de datos vectorial ChromaDB. EL output fue el siguiente
+Se ejecutó `ejecutar_evento_en_caliente()` de `vector_db.py` verificando la inserción/actualización mediante el método `upsert` y la posterior consulta directa a la base de datos vectorial ChromaDB. EL output fue el siguiente
 
 ```text
 === Ejecutando Evento en Caliente para ID: RUTA-KEF-MAD ===
@@ -217,7 +217,7 @@ El archivo estático de origen (`base_conocimiento.json`) conserva el registro h
 
 
 ### B.4 — CLI de búsqueda híbrida
-Se implementó el script `B4_busqueda_hibrida.py`, el cual integra búsqueda semántica por embeddings (`query_texts`) combinada con filtrado estructurado nativo (`where`) en ChromaDB.
+Se implementó la función `buscar_vuelos()` en `vector_db.py`, la cual integra búsqueda semántica por embeddings (`query_texts`) combinada con filtrado estructurado nativo (`where`) en ChromaDB.
 
 **Construcción nativa del filtro `where`**
 
@@ -368,7 +368,7 @@ En A.2 se estimó un umbral teórico de similitud coseno de 0.75-0.80, sobre el 
 
 ### C.3 — Cierre: qué falta para una respuesta real al usuario
 
-`buscar_vuelos()` de B4_busqueda_hibrida.py devuelve el diccionario crudo que entrega `coleccion.query()`: `ids`, `documents`, `metadatas` y `distances` de ChromaDB, sin traducir a lenguaje natural. Es el mismo punto de corte que ya se había señalado en C.5 de la Entrega 1 ("le falta la Base de Conocimiento"): esa base ya existe (Parte A y B de esta entrega), pero el eslabón que falta ahora es el siguiente, no el mismo.
+`buscar_vuelos()` de vector_db.py devuelve el diccionario crudo que entrega `coleccion.query()`: `ids`, `documents`, `metadatas` y `distances` de ChromaDB, sin traducir a lenguaje natural. Es el mismo punto de corte que ya se había señalado en C.5 de la Entrega 1 ("le falta la Base de Conocimiento"): esa base ya existe (Parte A y B de esta entrega), pero el eslabón que falta ahora es el siguiente, no el mismo.
 
 B6_test_killer_queries.py prototipa a mano el paso que le falta a B.4: toma el `documents` recuperado, lo concatena como `contexto` y se lo pasa a `gpt-4o-mini` junto con un system prompt para que redacte la respuesta en español en vez de exponer el JSON. Pero lo hace con la `query` y el `where_filter` de cada Killer Query hardcodeados en el propio script (ver `ejecutar_rag(...)` en B6) — es un caso de prueba fijado a mano, no un flujo genérico que reciba el `texto_libre` de cualquier usuario.
 
