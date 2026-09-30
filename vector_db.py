@@ -94,7 +94,7 @@ def ejecutar_evento_en_caliente():
     print("Metadatos actualizados:", resultado["metadatas"][0])
 
 
-def buscar_vuelos(query_semantica: str, categoria_precio: str = None, solo_directos: bool = False, n_resultados: int = 3):
+def buscar_vuelos(query_semantica: str, origen_o_destino: list[str] = None, categoria_precio: str = None, solo_directos: bool = False, n_resultados: int = 3):
     """
     Realiza una búsqueda híbrida en ChromaDB combinando similtud semántica
     con filtros nativos 'where' sin post-filtering manual.
@@ -103,6 +103,12 @@ def buscar_vuelos(query_semantica: str, categoria_precio: str = None, solo_direc
 
     # construcción nativa del filtro where
     condiciones = []
+
+    if origen_o_destino and len(origen_o_destino) == 2:
+        org, dest = origen_o_destino
+        condiciones.append(
+            {"$or": [{"origen": {"$eq": org}}, {"destino": {"$eq": dest}}]}
+        )
 
     if categoria_precio:
         condiciones.append({"categoria_precio": {"$eq": categoria_precio}})
@@ -136,11 +142,11 @@ if __name__ == "__main__":
     ejecutar_evento_en_caliente()
 
     # B.4 — búsqueda híbrida
-    print("TEST 1: Búsqueda Semántica + Vuelo Directo")
+    print("TEST 1: Búsqueda Semántica + Filtro $or (Origen MAD o Destino FCO)")
     res1 = buscar_vuelos(
-        query_semantica="escapada para ver auroras boreales",
-        solo_directos=True,
-        n_resultados=2
+        query_semantica="vuelos internacionales de larga distancia",
+        origen_o_destino=["MAD", "FCO"],
+        n_resultados=2,
     )
     for doc, meta in zip(res1["documents"][0], res1["metadatas"][0]):
         print(f"-> {doc}\n   Metadatos: {meta}\n")
@@ -149,17 +155,18 @@ if __name__ == "__main__":
     res2 = buscar_vuelos(
         query_semantica="vuelos económicos a Europa",
         categoria_precio="medio",
-        n_resultados=2
+        n_resultados=2,
     )
     for doc, meta in zip(res2["documents"][0], res2["metadatas"][0]):
         print(f"-> {doc}\n   Metadatos: {meta}\n")
 
-    print("TEST 3: Ambos Filtros ($and NATIVO)")
+    print("TEST 3: Filtro Combinado ($and nativo con $or de rutas y categoría)")
     res3 = buscar_vuelos(
-        query_semantica="turismo nórdico",
+        query_semantica="conexiones directas o rápidas",
+        origen_o_destino=["MAD", "BCN"],
         categoria_precio="medio",
         solo_directos=True,
-        n_resultados=2
+        n_resultados=2,
     )
     for doc, meta in zip(res3["documents"][0], res3["metadatas"][0]):
         print(f"-> {doc}\n   Metadatos: {meta}\n")
