@@ -87,12 +87,21 @@ openai_ef = funcion_embedding
 textos = [d["descripcion_semantica"] for d in datos_normalizados]
 embeddings = np.array(openai_ef(textos), dtype=np.float32)
 
-# umbral de distancia coseno (1 - similitud)
-# distancias por debajo de 0.20 indican casi-duplicados semánticos
-UMBRAL_DISTANCIA = 0.20
+# umbral de distancia coseno (1 - similitud), aplicado solo entre documentos de la misma ruta:
+# distancias por debajo de 0.25 indican casi-duplicados semánticos
+UMBRAL_DISTANCIA = 0.25
+
+
+# identifica la ruta sin importar el sentido: MAD-FCO y FCO-MAD son la misma ruta,
+# porque cada documento cubre ambas direcciones (A.3)
+def clave_ruta(doc: dict):
+    meta = doc["metadatos"]
+    return frozenset((meta.get("origen"), meta.get("destino")))
+
 
 indices_a_eliminar = set()
 pares_detectados = []
+pares_comparados = 0
 
 for i in range(len(embeddings)):
     if i in indices_a_eliminar:
@@ -100,6 +109,12 @@ for i in range(len(embeddings)):
     for j in range(i + 1, len(embeddings)):
         if j in indices_a_eliminar:
             continue
+
+        # bloqueo por metadatos: dos rutas distintas nunca son duplicadas entre sí,
+        # aunque sus textos se parezcan (ej. BCN-FCO vs MAD-FCO), así que ni se compara su distancia
+        if clave_ruta(datos_normalizados[i]) != clave_ruta(datos_normalizados[j]):
+            continue
+        pares_comparados += 1
 
         # calcular distancia coseno entre vectores norma-1
         vec1 = embeddings[i]
@@ -135,7 +150,9 @@ datos_purgados = [
     if idx not in indices_a_eliminar
 ]
 
-print(f"\nSe eliminaron {len(indices_a_eliminar)} casi-duplicados semánticos.")
+total_pares = len(datos_normalizados) * (len(datos_normalizados) - 1) // 2
+print(f"\nPares comparados (misma ruta): {pares_comparados} de {total_pares} posibles.")
+print(f"Se eliminaron {len(indices_a_eliminar)} casi-duplicados semánticos.")
 print(f"Total registros finales purgados: {len(datos_purgados)}")
 
 for par in pares_detectados:

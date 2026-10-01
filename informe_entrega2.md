@@ -273,64 +273,65 @@ Adicionalmente, `etl_purga.py` simula en tiempo de ejecución una **segunda fuen
 [COLISIÓN DE ID DETECTADA] 'RUTA-TEST-CLAVE-INCORRECTA' ya existía en la base -> renombrado a 'RUTA-TEST-CLAVE-INCORRECTA_dup' para no sobrescribir el registro original.
 ```
 
-`RUTA-TEST-CLAVE-INCORRECTA` (el registro original, de la clave mal nombrada) conserva su ID; el registro simulado de la segunda fuente (Sevilla–Oporto) queda indexado como `RUTA-TEST-CLAVE-INCORRECTA_dup`. Se verificó con `coleccion.get(ids=["RUTA-TEST-CLAVE-INCORRECTA", "RUTA-TEST-CLAVE-INCORRECTA_dup"])` que ambos registros conviven en la base final sin pisarse. La purga semántica que sigue confirma que este renombre no fue una coincidencia con la deduplicación por contenido: `RUTA-TEST-CLAVE-INCORRECTA_dup` no aparece en ninguno de los pares detectados más abajo, es decir, sobrevive intacto porque su texto (Sevilla–Oporto) no tiene nada que ver semánticamente con el original — la colisión era puramente de `id`, no de contenido duplicado, y el pipeline la resuelve como un problema distinto al que ataca la purga por distancia coseno.
+`RUTA-TEST-CLAVE-INCORRECTA` (el registro original, de la clave mal nombrada) conserva su ID; el registro simulado de la segunda fuente (Sevilla–Oporto) queda indexado como `RUTA-TEST-CLAVE-INCORRECTA_dup`. Se verificó con `coleccion.get(ids=["RUTA-TEST-CLAVE-INCORRECTA", "RUTA-TEST-CLAVE-INCORRECTA_dup"])` que ambos registros conviven en la base final sin pisarse. La purga semántica que sigue confirma que este renombre no fue una coincidencia con la deduplicación por contenido: `RUTA-TEST-CLAVE-INCORRECTA_dup` no aparece en ninguno de los pares detectados más abajo, es decir, sobrevive intacto porque es otra ruta (Sevilla–Oporto frente a Bilbao–Málaga), así que el bloqueo por ruta de la purga ni siquiera lo compara con el original — la colisión era puramente de `id`, no de contenido duplicado, y el pipeline la resuelve como un problema distinto al que ataca la purga por distancia coseno.
 
 
-**Justificación del umbral de distancia coseno (0.20)**
-Se utilizó text-embedding-3-small fijando un umbral de 0.20 para balancear la detección de redundancias sin incurrir en falsos positivos:
+**Primera versión y su límite: un único umbral para todos los pares**
 
+La primera versión de `etl_purga.py` comparaba cada documento contra todos los demás (276 pares) con un único umbral de distancia coseno de 0.20. Con ese corte se purgaron 2 de los 3 casi-duplicados, pero `RUTA-BCN-MAD-DUP-TEXTO` (0.2138) sobrevivió y terminó contaminando la Killer Query 1 de B.6. Subir el umbral a 0.25 lo atrapaba, pero a cambio borraba `RUTA-BCN-FCO`, una ruta real, por estar a 0.2103 de `RUTA-MAD-FCO`: entre el duplicado que había que borrar y la ruta que había que conservar había un margen de apenas 0.0035.
 
-**Riesgo de umbrales altos (>0.20)**: Al evaluar un umbral de 0.25, el sistema logró capturar el parafraseo de RUTA-BCN-MAD-DUP-TEXTO (0.2138), pero generó un falso positivo al eliminar erróneamente la ruta legítima Barcelona–Roma (BCN-FCO), la cual presentaba una distancia de 0.2103 frente a Madrid–Roma (MAD-FCO) por compartir características de destino y demanda.
+El problema de fondo no era el número elegido, sino que el orden estaba invertido: dos rutas **distintas** (Madrid–Roma y Barcelona–Roma, las dos "vuelos baratos y directos a Roma") quedaban más cerca entre sí (0.2103) que una ruta y su propia paráfrasis (0.2138). Con ese orden, ningún umbral global puede borrar el duplicado sin borrar también la ruta real: cualquier corte que atrape a uno atrapa al otro.
 
+**Corrección: bloqueo por ruta antes de medir la distancia**
 
-**Elección de 0.20**: Garantiza la conservación de todas las rutas válidas del catálogo eliminando únicamente paráfrasis de alta similitud.
+Por diseño (A.3), la base tiene un único documento por ruta, que cubre las dos direcciones. Eso implica que dos documentos de rutas distintas nunca pueden ser duplicados entre sí, por más que sus textos se parezcan. La ruta es un dato duro que ya vive en los metadatos (`origen`, `destino`), así que se aplica la misma Regla del Arquitecto que en la búsqueda: lo exacto se resuelve con metadatos, y la similitud semántica se usa solo donde hace falta interpretar. `etl_purga.py` agrupa primero los documentos por ruta con `clave_ruta()` —que trata MAD–FCO y FCO–MAD como la misma ruta, con el mismo criterio bidireccional de A.3— y solo mide la distancia coseno entre documentos de la misma ruta. De los 276 pares posibles se comparan 3. El par Madrid–Roma / Barcelona–Roma ya no se compara: el falso positivo no se esquiva con un número, queda excluido por construcción.
 
+**Justificación del umbral (0.25)**
 
+Con el bloqueo, el umbral solo tiene que distinguir una paráfrasis de un documento genuinamente distinto *dentro de una misma ruta*. Las tres distancias medidas entre cada ruta y su casi-duplicado son 0.1509, 0.1600 y 0.2138: 0.25 las cubre a todas, con un margen de 0.036 sobre la más lejana, y es el mismo valor que ya se había probado antes, descartado únicamente por el falso positivo entre rutas que ahora es imposible. No se eligió un valor mucho más alto a propósito: si en el futuro llegara un segundo documento de la misma ruta con un texto muy distinto (por ejemplo, datos contradictorios de otra fuente), es preferible conservarlo antes que borrarlo en silencio, porque probablemente aporte información que el original no tiene.
 
-La ejecución del script arrojó el siguiente log de consola (umbral 0.20):
+La ejecución del script arrojó el siguiente log de consola (umbral 0.25, con bloqueo por ruta):
 ```text
 Total registros cargados iniciales: 24
 [COLISIÓN DE ID DETECTADA] 'RUTA-TEST-CLAVE-INCORRECTA' ya existía en la base -> renombrado a 'RUTA-TEST-CLAVE-INCORRECTA_dup' para no sobrescribir el registro original.
 Registros tras normalización ETL: 24
 
-Se eliminaron 2 casi-duplicados semánticos.
-Total registros finales purgados: 22
+Pares comparados (misma ruta): 3 de 276 posibles.
+Se eliminaron 3 casi-duplicados semánticos.
+Total registros finales purgados: 21
 
-[PURGA DETECTADA - Distancia: 0.1598]
+[PURGA DETECTADA - Distancia: 0.16]
   - Mantener (RUTA-MAD-FCO): La ruta Madrid–Roma (MAD–FCO) es una de las más transitadas del catálogo, con más de 1.400 vuelos re...
   - Eliminar (RUTA-MAD-FCO-DUP-JERGA): El trayecto entre Madrid Barajas y Roma Fiumicino posee alta demanda para viajes cortos a Italia o E...
 
-[PURGA DETECTADA - Distancia: 0.1512]
+[PURGA DETECTADA - Distancia: 0.2138]
+  - Mantener (RUTA-BCN-MAD): La ruta Barcelona–Madrid (BCN–MAD) es la de mayor volumen de todo el catálogo, con 3.470 vuelos regi...
+  - Eliminar (RUTA-BCN-MAD-DUP-TEXTO): Vuelos entre Barcelona y Madrid, el histórico corredor conocido como puente aéreo. Vuelos directos d...
+
+[PURGA DETECTADA - Distancia: 0.1509]
   - Mantener (RUTA-BGY-BVA): La ruta Bérgamo–París Beauvais (BGY–BVA) es la más barata de todo el catálogo, con una mediana de ap...
   - Eliminar (RUTA-BGY-BVA-DUP-CONCEPTUAL): Ruta súper barata operada por Ryanair conectando Bérgamo y Beauvais (aeropuertos secundarios de Milá...
 
-¡ChromaDB actualizada con éxito! Total indexados: 22
+¡ChromaDB actualizada con éxito! Total indexados: 21
 ```
 
+**Verificación sobre la colección.** Con `coleccion.get()` se confirmó que la colección final tiene 21 documentos, que ninguno de los 3 casi-duplicados sigue presente, que `RUTA-BCN-FCO` y `RUTA-TEST-CLAVE-INCORRECTA_dup` se conservaron, y que la colección mantiene `hnsw:space: cosine`. Sobre los embeddings ya guardados, la distancia entre `RUTA-MAD-FCO` y `RUTA-BCN-FCO` sigue siendo 0.2103 —por debajo de 0.25—: sin el bloqueo por ruta, el nuevo umbral la habría borrado; con el bloqueo, nunca se comparan.
 
 **Limpieza ETL**: Normalizó con éxito la clave is_direct → vuelo_directo_disponible, convirtió la cadena "True" al booleano true, y resolvió la colisión de ID entre `RUTA-TEST-CLAVE-INCORRECTA` y el registro simulado de la segunda fuente con el mismo id, renombrando a este último a `RUTA-TEST-CLAVE-INCORRECTA_dup`.
 
-**Purga semántica**: Eliminó los 2 casi-duplicados de menor distancia (RUTA-MAD-FCO-DUP-JERGA a 0.1598 y RUTA-BGY-BVA-DUP-CONCEPTUAL a 0.1512).
+**Purga semántica**: Eliminó los 3 casi-duplicados: RUTA-MAD-FCO-DUP-JERGA (0.1600), RUTA-BCN-MAD-DUP-TEXTO (0.2138) y RUTA-BGY-BVA-DUP-CONCEPTUAL (0.1509).
 
-**Resultado final**: La base final consta de 22 registros. Se conservaron las 2 rutas de prueba (BIO-AGP y VLC-PMI) corregidas por el ETL, y el registro de la colisión de ID (`RUTA-TEST-CLAVE-INCORRECTA_dup`) por no presentar redundancia semántica con ninguna otra ruta, mientras que RUTA-BCN-MAD-DUP-TEXTO (0.2138) se mantuvo al situarse por encima del umbral de corte definido para priorizar la precisión del catálogo y evitar falsos positivos.
+**Resultado final**: La base final consta de 21 registros: las 18 rutas reales, las 2 rutas de prueba corregidas por el ETL (BIO-AGP y VLC-PMI) y el registro de la colisión de ID (`RUTA-TEST-CLAVE-INCORRECTA_dup`). No queda ningún casi-duplicado y no se perdió ninguna ruta real.
 
-
-
-
-**Análisis del caso RUTA-BCN-MAD-DUP-TEXTO:**
-
-
-- **Ficha original (RUTA-BCN-MAD)**: Detalla el "puente aéreo", la alta frecuencia de negocios, las aerolíneas principales (Iberia/Air Europa), tiempos de vuelo (1h20-1h25) y la mediana de precios (109€).
-
-- **Ficha duplicada (RUTA-BCN-MAD-DUP-TEXTO)**: Cuenta exactamente la misma historia del corredor Barcelona–Madrid pero estructurada con otra sintaxis y palabras ligeramente distintas.
-
-Al tener una distancia de 0.2138, quedó apenas por encima del umbral de 0.20. La comparación demuestra que si se sube el umbral a 0.25 para forzar la eliminación de este duplicado, el vectorizador terminaba confundiendo Madrid–Roma con Barcelona–Roma (0.2103).
-
-En ingeniería de datos y RAG, cuando hay duda entre eliminar un dato o conservarlo, siempre se prefiere la precisión (evitar borrar datos reales por error). Un registro casi-duplicado menor en la base vectorial tiene costo cero para el usuario en la etapa de generación, mientras que haber borrado una ruta real como Barcelona–Roma habría sido un fallo grave del sistema.
-
-
+| Versión del ETL | Pares comparados | Casi-duplicados purgados | Rutas reales borradas por error | Registros finales |
+|---|---|---|---|---|
+| Anterior: umbral 0.20, todos contra todos | 276 | 2 de 3 | 0 | 22 |
+| Anterior: umbral 0.25, todos contra todos | 276 | 3 de 3 | 1 (`RUTA-BCN-FCO`) | 20 |
+| **Actual: umbral 0.25, solo dentro de la misma ruta** | **3** | **3 de 3** | **0** | **21** |
 
 Un SELECT DISTINCT no habría encontrado estos duplicados porque realiza una comparación de texto literal, evaluando cadenas exactas, por lo que redactar la misma idea con distintas palabras lo toma como registros diferentes. Además, al tener identificadores distintos (id), la base de datos los considera filas independientes, y cualquier variación en las claves o tipos de datos rompe la coincidencia exacta a nivel de bytes.
+
+Tampoco alcanzaría con un `SELECT DISTINCT origen, destino`: el bloqueo por ruta solo indica qué documentos *pueden* ser duplicados, y es la distancia coseno la que confirma que efectivamente cuentan lo mismo. Si una misma ruta tuviera dos documentos con información realmente distinta, un DISTINCT por ruta los colapsaría igual y se perderían datos.
 
 ---
 
@@ -348,7 +349,7 @@ La tabla con las tres consultas, qué pone a prueba cada una, el resultado esper
 
 | Elemento de la Entrega 1 (`informe.md`) | Cómo se implementa en la Entrega 2 |
 |---|---|
-| Columna "Base de Conocimiento" del PEAS, sección A.3 (entrega 1) | ← la colección ChromaDB `vuelos_smart_flight_assistant` con los 22 documentos de rutas, sección B.5 (entrega 2) |
+| Columna "Base de Conocimiento" del PEAS, sección A.3 (entrega 1) | ← la colección ChromaDB `vuelos_smart_flight_assistant` con los 21 documentos de rutas, sección B.5 (entrega 2) |
 | Campos de filtrado de la Matriz de Intenciones, sección B.3 (entrega 1) | ← los metadatos de la base (`origen`, `destino`, `vuelo_directo_disponible`, `categoria_precio`), sección A.3 (entrega 2) |
 | Parámetros que el LLM extraía del `texto_libre` sección B.5 (entrega 1) | ← el destino del filtro cambia: de `WHERE` SQL a `where` nativo de ChromaDB. La extracción vía LLM desde `texto_libre` no está implementada, dado que los scripts reciben el filtro armado a mano, secciones B.4 y B.6 (entrega 2). |
 
