@@ -1,9 +1,9 @@
-### B.6 — Killer Queries
+### B.6 — Killer Queries (con umbral de distancia C.2 = 0.50)
 | # | Consulta | Qué pone a prueba | Resultado esperado | Resultado real | ¿Pasó? |
 |---|---|---|---|---|---|
-| **1** | *"Quiero pegarme una escapada barata en el puente aéreo para laburar en el día"* | Poder semántico: jerga sin palabras exactas del documento | Recuperar `RUTA-BCN-MAD` reconociendo "puente aéreo" y "viaje de negocios" sin mencionar las ciudades. | Recuperó un conjunto de 3 rutas (`RUTA-BCN-MAD-DUP-TEXTO`, `RUTA-BCN-FCO`, `RUTA-BCN-MAD`). El LLM detectó el contexto corporativo pero adoptó una postura conservadora con la palabra "barata" por no encontrarla textualmente. | **Sí** |
-| **2** | *"Busco un vuelo directo para ir de Madrid a Roma"* | El metadato salva el día: la semántica cruda traería un desastre, el filtro lo bloquea | Filtrar por `vuelo_directo_disponible == true` excluyendo rutas indirectas o similares. | Retornó únicamente `RUTA-MAD-FCO` aplicando el filtro estricto por metadatos y detalló características y precios con éxito. | **Sí** |
-| **3** | *"¿Qué vuelos tienen disponibles para ir desde Buenos Aires a Tokio?"* | Prueba de estrés: consulta fuera del catálogo — debe responder "no tengo eso" | Reconocer la falta de contexto relevante y no alucinar. | Recuperó vecinos aleatorios del catálogo (`RUTA-OSL-TLL`, etc.), pero el LLM reconoció la falta de coincidencia y respondió correctamente que no dispone de esa ruta. | **Sí** |
+| **1** | *"Quiero pegarme una escapada barata en el puente aéreo para laburar en el día"* | Poder semántico: jerga sin palabras exactas del documento | Recuperar `RUTA-BCN-MAD` reconociendo "puente aéreo" y "viaje de negocios" sin mencionar las ciudades. | Los 3 candidatos (`RUTA-BCN-FCO` 0.623, `RUTA-BCN-MAD` 0.633, `RUTA-BRE-FRA` 0.647) superan el umbral de 0.50 y se descartan: responde "no dispongo de esa información" sin llamar al LLM. | **No** (falso negativo conocido, ver B.6 del informe) |
+| **2** | *"Busco un vuelo directo para ir de Madrid a Roma"* | El metadato salva el día: la semántica cruda traería un desastre, el filtro lo bloquea | Filtrar por `vuelo_directo_disponible == true` excluyendo rutas indirectas o similares. | Retornó únicamente `RUTA-MAD-FCO` (distancia 0.279, bajo el umbral) y el LLM detalló características y precios. | **Sí** |
+| **3** | *"¿Qué vuelos tienen disponibles para ir desde Buenos Aires a Tokio?"* | Prueba de estrés: consulta fuera del catálogo — debe responder "no tengo eso" | Reconocer la falta de contexto relevante y no alucinar. | Los 3 vecinos (`RUTA-OSL-TLL` 0.561, `RUTA-ATH-LHR` 0.574, `RUTA-MAD-FCO` 0.605) superan el umbral y se descartan en el retriever; el LLM ni se invoca. | **Sí** |
 
 
 Resultados:
@@ -12,25 +12,28 @@ Resultados:
 ==========================================
 QUERY: 'Quiero pegarme una escapada barata en el puente aéreo para laburar en el día'
 
---> IDs Recuperados: ['RUTA-BCN-MAD-DUP-TEXTO', 'RUTA-BCN-FCO', 'RUTA-BCN-MAD']
+--> Candidatos (id: distancia): {'RUTA-BCN-FCO': 0.6231, 'RUTA-BCN-MAD': 0.6326, 'RUTA-BRE-FRA': 0.647}
+--> IDs Recuperados (distancia <= 0.5): []
 
---> Respuesta LLM:
-No disponés de esa información en el catálogo. La ruta Barcelona–Madrid (BCN–MAD) es predominantemente para viajeros de negocios, pero no se menciona que sea una escapada barata. La mediana de precios es de 117€ saliendo de Barcelona y 100€ saliendo de Madrid.
+--> Respuesta: No dispongo de esa información en el catálogo.
+    (ningún resultado superó el umbral de similitud; no se invocó al LLM)
 
 ==========================================
 QUERY: 'Busco un vuelo directo para ir de Madrid a Roma'
 FILTRO METADATOS: {'vuelo_directo_disponible': True}
 
---> IDs Recuperados: ['RUTA-MAD-FCO']
+--> Candidatos (id: distancia): {'RUTA-MAD-FCO': 0.2787}
+--> IDs Recuperados (distancia <= 0.5): ['RUTA-MAD-FCO']
 
 --> Respuesta LLM:
-Puedes encontrar vuelos directos de Madrid a Roma (MAD–FCO) operados principalmente por Iberia, Air Europa, ITA Airways, así como opciones low-cost como Ryanair y Wizz Air. La duración típica del vuelo es de entre 2h20 y 2h40. Los precios son en promedio de 150€, con un rango que va de 25€ a 675€ según la antelación de compra. Los vuelos son más frecuentes los martes y los fines de semana.
+La ruta Madrid–Roma (MAD–FCO) ofrece vuelos directos, con más del 97% de los vuelos sin escalas. La duración típica del vuelo es de entre 2h20 y 2h40. Las aerolíneas que cubren esta ruta incluyen Iberia, Air Europa, ITA Airways, Ryanair y Wizz Air. Los precios son aproximadamente 150€ de media. Te recomiendo verificar la disponibilidad y horarios específicos para tu fecha de viaje.
 
 ==========================================
 QUERY: '¿Qué vuelos tienen disponibles para ir desde Buenos Aires a Tokio?'
 
---> IDs Recuperados: ['RUTA-OSL-TLL', 'RUTA-ATH-LHR', 'RUTA-BGY-BVA']
+--> Candidatos (id: distancia): {'RUTA-OSL-TLL': 0.561, 'RUTA-ATH-LHR': 0.574, 'RUTA-MAD-FCO': 0.605}
+--> IDs Recuperados (distancia <= 0.5): []
 
---> Respuesta LLM:
-No dispongo de esa información en el catálogo.
+--> Respuesta: No dispongo de esa información en el catálogo.
+    (ningún resultado superó el umbral de similitud; no se invocó al LLM)
 ```

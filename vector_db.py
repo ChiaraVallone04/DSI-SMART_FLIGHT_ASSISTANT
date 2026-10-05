@@ -1,4 +1,4 @@
-"""B.1–B.4 — ChromaDB persistente, evento en caliente y búsqueda híbrida sobre la base de A.3."""
+"""B.1–B.4 y C.2 — ChromaDB persistente, evento en caliente, búsqueda híbrida y umbral de aceptación sobre la base de A.3."""
 import json
 import os
 
@@ -16,6 +16,11 @@ MODELO_EMBEDDING = "text-embedding-3-small"
 RUTA_BASE_CONOCIMIENTO = "base_conocimiento.json"
 RUTA_CHROMA = "chroma_db"
 NOMBRE_COLECCION = "vuelos_smart_flight_assistant"
+
+# C.2 — umbral de aceptación en la recuperación, en distancia coseno de ChromaDB (0 = idéntico, menor = más cercano).
+# Calibrado con text-embedding-3-small sobre la colección purgada: las consultas con match real en el catálogo
+# quedan entre 0.28 y 0.46, y las consultas fuera de catálogo entre 0.56 y 0.82. 0.50 queda en el medio de esa brecha.
+UMBRAL_DISTANCIA = 0.50
 
 funcion_embedding = embedding_functions.OpenAIEmbeddingFunction(
     api_key=OPENAI_API_KEY,
@@ -94,10 +99,22 @@ def ejecutar_evento_en_caliente():
     print("Metadatos actualizados:", resultado["metadatas"][0])
 
 
-def buscar_vuelos(query_semantica: str, origen_o_destino: list[str] = None, categoria_precio: str = None, solo_directos: bool = False, n_resultados: int = 3):
+# Descarta los resultados cuya distancia supera el umbral: ChromaDB siempre devuelve los n vecinos más
+# cercanos, aunque ninguno tenga que ver con la consulta, y ese "mejor de los peores" no debe llegar al LLM
+def filtrar_por_umbral(resultados: dict, umbral: float = UMBRAL_DISTANCIA) -> dict:
+    # las listas vienen ordenadas por distancia, así que se conservan solo las posiciones aceptadas
+    aceptados = [i for i, d in enumerate(resultados["distances"][0]) if d <= umbral]
+    return {
+        clave: [[resultados[clave][0][i] for i in aceptados]]
+        for clave in ("ids", "documents", "metadatas", "distances")
+    }
+
+
+def buscar_vuelos(query_semantica: str, origen_o_destino: list[str] = None, categoria_precio: str = None, solo_directos: bool = False, n_resultados: int = 3, umbral_distancia: float = UMBRAL_DISTANCIA):
     """
     Realiza una búsqueda híbrida en ChromaDB combinando similtud semántica
-    con filtros nativos 'where' sin post-filtering manual.
+    con filtros nativos 'where' sin post-filtering manual, y descarta los
+    resultados que superan el umbral de distancia (C.2).
     """
     coleccion = obtener_coleccion()
 
@@ -129,7 +146,8 @@ def buscar_vuelos(query_semantica: str, origen_o_destino: list[str] = None, cate
         where=where_filter
     )
 
-    return resultados
+    # el umbral se aplica después del where: primero se restringe por metadatos y después por cercanía semántica
+    return filtrar_por_umbral(resultados, umbral_distancia)
 
 
 if __name__ == "__main__":
@@ -141,32 +159,36 @@ if __name__ == "__main__":
     # B.3 — evento de negocio en caliente
     ejecutar_evento_en_caliente()
 
-    # B.4 — búsqueda híbrida
+    # B.4 — búsqueda híbrida (con el umbral de C.2 aplicado dentro de buscar_vuelos)
+    def imprimir(res):
+        if not res["ids"][0]:
+            print("-> Sin resultados: ninguno superó el umbral de similitud.\n")
+        for doc, meta, dist in zip(res["documents"][0], res["metadatas"][0], res["distances"][0]):
+            print(f"-> [dist={dist:.4f}] {doc}\n   Metadatos: {meta}\n")
+
     print("TEST 1: Búsqueda Semántica + Filtro $or (Origen MAD o Destino FCO)")
-    res1 = buscar_vuelos(
-        query_semantica="vuelos internacionales de larga distancia",
+    imprimir(buscar_vuelos(
+        query_semantica="vuelos desde Madrid o hacia Roma",
         origen_o_destino=["MAD", "FCO"],
         n_resultados=2,
-    )
-    for doc, meta in zip(res1["documents"][0], res1["metadatas"][0]):
-        print(f"-> {doc}\n   Metadatos: {meta}\n")
+    ))
 
     print("TEST 2: Búsqueda Semántica + Categoría de Precio")
-    res2 = buscar_vuelos(
+    imprimir(buscar_vuelos(
         query_semantica="vuelos económicos a Europa",
         categoria_precio="medio",
         n_resultados=2,
-    )
-    for doc, meta in zip(res2["documents"][0], res2["metadatas"][0]):
-        print(f"-> {doc}\n   Metadatos: {meta}\n")
+    ))
 
     print("TEST 3: Filtro Combinado ($and nativo con $or de rutas y categoría)")
-    res3 = buscar_vuelos(
-        query_semantica="conexiones directas o rápidas",
+    imprimir(buscar_vuelos(
+        query_semantica="vuelos directos entre Madrid y Barcelona",
         origen_o_destino=["MAD", "BCN"],
         categoria_precio="medio",
         solo_directos=True,
         n_resultados=2,
-    )
-    for doc, meta in zip(res3["documents"][0], res3["metadatas"][0]):
-        print(f"-> {doc}\n   Metadatos: {meta}\n")
+    ))
+
+    # C.2 — consulta fuera de catálogo: ningún vecino supera el umbral
+    print("TEST 4: Consulta fuera de catálogo (Buenos Aires a Tokio)")
+    imprimir(buscar_vuelos(query_semantica="vuelos de Buenos Aires a Tokio"))

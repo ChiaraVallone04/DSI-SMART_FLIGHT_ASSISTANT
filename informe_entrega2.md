@@ -251,6 +251,8 @@ TEST 3: Ambos Filtros ($and NATIVO)
 
 Aplicar el filtrado de metadatos dentro de ChromaDB previo al cálculo de similitud evita procesar documentos irrelevantes, optimiza el consumo y garantiza respuestas precisas e integras.
 
+> **Nota (C.2):** el log anterior corresponde a la versión previa de `buscar_vuelos()`. Desde la corrección de C.2 la función además descarta los resultados con distancia coseno mayor a `UMBRAL_DISTANCIA` (0.50) y devuelve las distancias junto con cada resultado; ver C.2 para la justificación del valor.
+
 
 ### B.5 — ETL y purga semántica
 Para validar la solidez del pipeline ante datos inconsistentes y redundantes, se introdujeron 5 registros de prueba sucios en la base de conocimiento (base_conocimiento.json), elevando temporalmente el total inicial a 23 registros:
@@ -337,9 +339,13 @@ Tampoco alcanzaría con un `SELECT DISTINCT origen, destino`: el bloqueo por rut
 
 ### B.6 — Killer Queries
 
-Se diseñaron y ejecutaron tres Killer Queries contra la colección ya purgada de ChromaDB (22 rutas, incluyendo los registros de prueba de B.5 que sobrevivieron la purga por no ser duplicados semánticos). Cada consulta se resuelve en dos pasos: primero recuperación semántica sobre la colección (con o sin filtro `where` nativo, según el caso), y luego el contexto recuperado se pasa a `gpt-4o-mini` (temperatura 0) con un system prompt que lo instruye explícitamente a responder solo con lo que está en el contexto, y a admitir cuando no dispone de la información en vez de inventarla.
+Se diseñaron y ejecutaron tres Killer Queries contra la colección ya purgada de ChromaDB (21 rutas). Cada consulta se resuelve en tres pasos: recuperación semántica sobre la colección (con o sin filtro `where` nativo, según el caso), **corte por el umbral de distancia de C.2** y, solo si quedó algún resultado, el contexto se pasa a `gpt-4o-mini` (temperatura 0) con un system prompt que lo instruye a responder solo con lo que está en el contexto. Si ningún resultado supera el umbral, el script responde "no dispongo de esa información" **sin invocar al LLM**.
 
-La tabla con las tres consultas, qué pone a prueba cada una, el resultado esperado vs. el real, y el log íntegro de la ejecución (IDs recuperados y respuesta del LLM) está en [`resultados_killer_queries.md`](resultados_killer_queries.md). Las tres pasaron: la Query 1 confirma que la búsqueda semántica reconoce jerga ("puente aéreo", "laburar") sin que esas palabras estén en el documento; la Query 2 confirma que el filtro exacto por metadato bloquea lo que la búsqueda semántica sola podría confundir, el mismo argumento ya documentado en B.2 y en el falso positivo de A.4 con `RUTA-OSL-TLL`; y la Query 3 confirma que, aunque ChromaDB siempre devuelve los vecinos más cercanos aunque no haya match real (`RUTA-OSL-TLL`, `RUTA-ATH-LHR`, `RUTA-BGY-BVA`), el LLM reconoce que ninguno responde la pregunta en vez de alucinar con el más parecido, tal como se había anticipado en la reflexión del umbral de A.2.
+La tabla con las tres consultas, qué pone a prueba cada una, el resultado esperado vs. el real, y el log íntegro de la ejecución (candidatos con su distancia, IDs que sobrevivieron al umbral y respuesta) está en [`resultados_killer_queries.md`](resultados_killer_queries.md). Dos pasaron y una no:
+
+- **Query 2 (pasó):** el filtro exacto por metadato más la cercanía semántica (`RUTA-MAD-FCO`, distancia 0.279) devuelven la ruta correcta; el mismo argumento ya documentado en B.2 y en el falso positivo de A.4 con `RUTA-OSL-TLL`.
+- **Query 3 (pasó, y ahora por el motivo correcto):** ChromaDB devuelve igual los 3 vecinos más cercanos (`RUTA-OSL-TLL` 0.561, `RUTA-ATH-LHR` 0.574, `RUTA-MAD-FCO` 0.605), pero los tres superan el umbral de 0.50, así que el retriever los descarta y el LLM nunca los ve. Antes esta query "pasaba" porque `gpt-4o-mini` lo decidía por prompt (ver C.2).
+- **Query 1 (no pasó — limitación conocida):** la jerga ("escapada barata en el puente aéreo para laburar en el día") queda a 0.623 de `RUTA-BCN-FCO` y a 0.633 de `RUTA-BCN-MAD`, es decir, más lejos que la consulta fuera de catálogo de la Query 3 (0.561). Con embeddings `text-embedding-3-small` y descripciones de rutas largas, una frase coloquial y larga se aleja de todos los documentos, y ningún umbral puede aceptarla sin aceptar también Buenos Aires–Tokio. Se prefirió rechazarla (falso negativo) antes que dejar pasar una ruta inexistente (alucinación). Cabe notar que ya antes del umbral el retriever ponía primero a `BCN-FCO` y no a `BCN-MAD`, y que el LLM terminaba respondiendo "no dispongo de esa información": el umbral solo hace explícito en el código un rechazo que antes dependía del azar del prompt. La mejora natural es reescribir la consulta del usuario a una forma más cercana al catálogo antes de embeberla (query rewriting), que corresponde al orquestador de C.3.
 
 ---
 
@@ -363,7 +369,20 @@ La "Regla de oro" (*"en ningún caso el LLM toma decisiones... eso lo calcula si
 
 ### C.2 — El umbral de aceptación
 
-En A.2 se estimó un umbral teórico de similitud coseno de 0.75-0.80, sobre el ejercicio de 2 ejes hecho a mano. Sin embargo, ese número no está implementado como corte numérico en el código de recuperación: los embeddings reales de 1536 dimensiones dan similitudes máximas más bajas en la práctica (0.43-0.57 en las pruebas de A.4), por lo que un corte fijo de 0.75 rechazaría incluso las mejores coincidencias reales del catálogo. El comportamiento correcto se logra en cambio por el system prompt del LLM generador (B.6), instruido a responder solo con el contexto recuperado y admitir la falta de información en vez de inventar. Prueba de esto es el Killer Query #3: ante una consulta sobre una ruta fuera del catálogo (Buenos Aires-Tokio), ChromaDB devuelve sus 3 vecinos más cercanos por default, pero el LLM reconoce que ninguno responde la pregunta y contesta "No dispongo de esa información en el catálogo" en vez de forzar el más parecido.
+**Qué se estimó en A.2 y por qué no servía.** En A.2 se estimó un umbral de similitud coseno de 0.75-0.80 sobre el ejercicio de 2 ejes hechos a mano. Con los embeddings reales de 1536 dimensiones ese número no aplica: las similitudes máximas reales son mucho más bajas (0.43-0.57 en A.4), así que un corte en 0.75 rechazaría incluso las mejores coincidencias del catálogo. En la versión anterior de este informe se concluyó de ahí que el umbral no hacía falta y que alcanzaba con el system prompt del LLM. **Esa conclusión era incorrecta:** el problema era el valor, no la idea de tener un corte. La consigna pide un umbral en la recuperación, y delegarlo al LLM tiene dos defectos: (1) el retriever igual entrega como "relevante" el mejor de los peores resultados (alucinación por sustitución), y (2) la decisión depende de que el modelo obedezca un prompt, no de una regla verificable.
+
+**Qué se implementó.** Una constante `UMBRAL_DISTANCIA = 0.50` y una función `filtrar_por_umbral()` en `vector_db.py`, aplicadas en `buscar_vuelos()` (B.4) y en `ejecutar_rag()` de `B6_test_killer_queries.py` (B.6). El corte se hace sobre la **distancia coseno** que devuelve ChromaDB (0 = idéntico; es `1 - similitud`), igual que el `UMBRAL_DUPLICADO` de la ETL de B.5. El umbral equivale a una similitud mínima de 0.50, y se aplica a *cada* resultado, no solo al primero: de un top-3 pueden sobrevivir 0, 1, 2 o 3. Si no sobrevive ninguno, no se llama al LLM y se responde "no dispongo de esa información en el catálogo". El system prompt de B.6 se mantiene como segunda línea de defensa, no como la primera.
+
+**Cómo se eligió 0.50.** Se midió la distancia del mejor resultado sobre la colección purgada para dos grupos de consultas:
+
+| Grupo | Consultas | Mejor distancia |
+|---|---|---|
+| Con match real en el catálogo | `MAD-FCO`, `BCN-MAD`, `KEF-MAD`, `BCN-FCO`, "económicos a Europa", etc. | 0.276 – 0.456 |
+| Fuera de catálogo | Buenos Aires–Tokio, Nueva York–Sídney, Montevideo–Ciudad del Cabo, hoteles en París, restaurante en Lima, receta de tortilla | 0.561 – 0.820 |
+
+Entre 0.456 y 0.561 hay una brecha limpia, y 0.50 queda en el medio con aproximadamente 0.05 de margen de cada lado. Para el catálogo actual ese margen es razonable, pero la muestra es chica (21 documentos, 14 consultas), así que el valor debe recalibrarse si el catálogo crece o se cambia el modelo de embeddings.
+
+**Costo conocido.** El umbral es un corte binario sobre un solo número, y las consultas coloquiales largas (la jerga de la Killer Query 1, a 0.623) quedan más lejos que algunas consultas fuera de catálogo (Buenos Aires–Tokio, a 0.561). No existe un umbral que acepte la primera y rechace la segunda, así que se eligió rechazar ambas: un falso negativo (el usuario reformula) es preferible a una alucinación (se le ofrece una ruta inexistente). Detalle en B.6.
 
 ---
 

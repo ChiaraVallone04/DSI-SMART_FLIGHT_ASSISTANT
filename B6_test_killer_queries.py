@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from vector_db import obtener_coleccion
+from vector_db import UMBRAL_DISTANCIA, filtrar_por_umbral, obtener_coleccion
 
 load_dotenv(override=True)
 
@@ -25,15 +25,22 @@ def ejecutar_rag(query, where_filter=None, n_results=3):
         query_texts=[query], n_results=n_results, where=where_filter
     )
 
+    # C.2 — umbral de aceptación: se descartan los vecinos que Chroma devuelve aunque estén lejos de la consulta
+    print(f"\n--> Candidatos (id: distancia): {dict(zip(results['ids'][0], [round(d, 4) for d in results['distances'][0]]))}")
+    results = filtrar_por_umbral(results, UMBRAL_DISTANCIA)
+
     documentos_recuperados = results["documents"][0]
     ids_recuperados = results["ids"][0]
 
-    print(f"\n--> IDs Recuperados: {ids_recuperados}")
+    print(f"--> IDs Recuperados (distancia <= {UMBRAL_DISTANCIA}): {ids_recuperados}")
 
+    # si nada supera el umbral no se llama al LLM: la respuesta "no tengo eso" la decide el código, no el prompt
     if not documentos_recuperados:
-        contexto = "No se encontraron rutas relevantes en el catálogo."
-    else:
-        contexto = "\n\n".join(documentos_recuperados)
+        print("\n--> Respuesta: No dispongo de esa información en el catálogo.")
+        print("    (ningún resultado superó el umbral de similitud; no se invocó al LLM)")
+        return
+
+    contexto = "\n\n".join(documentos_recuperados)
 
     # generación con LLM
     system_prompt = (
