@@ -26,13 +26,15 @@ def ejecutar_rag(query, where_filter=None, n_results=3):
     )
 
     # C.2 — umbral de aceptación: se descartan los vecinos que Chroma devuelve aunque estén lejos de la consulta
-    print(f"\n--> Candidatos (id: distancia): {dict(zip(results['ids'][0], [round(d, 4) for d in results['distances'][0]]))}")
+    print(
+        f"\n--> Candidatos (id: distancia): {dict(zip(results['ids'][0], [round(d, 4) for d in results['distances'][0]]))}")
     results = filtrar_por_umbral(results, UMBRAL_DISTANCIA)
 
     documentos_recuperados = results["documents"][0]
     ids_recuperados = results["ids"][0]
 
-    print(f"--> IDs Recuperados (distancia <= {UMBRAL_DISTANCIA}): {ids_recuperados}")
+    print(
+        f"--> IDs Recuperados (distancia <= {UMBRAL_DISTANCIA}): {ids_recuperados}")
 
     # si nada supera el umbral no se llama al LLM: la respuesta "no tengo eso" la decide el código, no el prompt
     if not documentos_recuperados:
@@ -72,12 +74,20 @@ ejecutar_rag(
     "Quiero pegarme una escapada barata en el puente aéreo para laburar en el día"
 )
 
-# Test 2: Búsqueda con filtro estricto por metadato (limitado a 1 resultado)
+# Test 2a: la misma consulta SIN filtro duro (la semántica cruda: el "desastre")
 ejecutar_rag(
-    "Busco un vuelo directo para ir de Madrid a Roma",
+    "ruta directa a Tallin",
+    n_results=1,
+)
+
+# Test 2b: la misma consulta CON filtro duro por metadato (el filtro lo bloquea)
+ejecutar_rag(
+    "ruta directa a Tallin",
     where_filter={"vuelo_directo_disponible": True},
     n_results=1,
 )
 
+
 # Test 3: Consulta fuera de catálogo
-ejecutar_rag("¿Qué vuelos tienen disponibles para ir desde Buenos Aires a Tokio?")
+ejecutar_rag(
+    "¿Qué vuelos tienen disponibles para ir desde Buenos Aires a Tokio?")
