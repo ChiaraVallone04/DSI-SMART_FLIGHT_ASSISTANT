@@ -221,7 +221,7 @@ Se implementó la función `buscar_vuelos()` en `vector_db.py`, la cual integra 
 
 **Construcción nativa del filtro `where`**
 
-Para evitar procesar filtros en Python y optimizar el cálculo de similitud, las restricciones se resuelven nativamente en la base de datos usando `$eq` y `$and`:
+Para evitar procesar filtros en Python y optimizar el cálculo de similitud, las restricciones se resuelven nativamente en la base de datos usando `$eq`, `$and` y `$or`; no hay ningún `if` de Python después de la query:
 
 - **Filtro simple:** Si se aplica una sola restricción (ej. `solo_directos`), se envía directamente la condición `{"vuelo_directo_disponible": {"$eq": True}}`.
 - **Filtro compuesto (`$and`):** Si se aplican múltiples restricciones (ej. categoría de precio y vuelo directo), se encapsulan bajo el operador nativo:
@@ -233,25 +233,45 @@ Para evitar procesar filtros en Python y optimizar el cálculo de similitud, las
       ]
   }
   ```
+- **Ruta en ambos sentidos (`$or`):** como se justificó en A.3, cada documento cubre los dos sentidos de la ruta pero guarda uno solo en `origen`/`destino` — `RUTA-BCN-MAD` figura como BCN→MAD aunque el usuario pregunte por "Madrid y Barcelona". El parámetro `ruta=[A, B]` arma un `$or` con las dos combinaciones posibles, sin importar en qué orden se pasen los códigos:
+  ```python
+  {"$or": [
+      {"$and": [{"origen": {"$eq": "MAD"}}, {"destino": {"$eq": "BCN"}}]},
+      {"$and": [{"origen": {"$eq": "BCN"}}, {"destino": {"$eq": "MAD"}}]},
+  ]}
+  ```
+  Este `$or` se combina con los demás filtros dentro de un `$and` externo.
 
-Se ejecutaron las pruebas del script obteniendo las siguientes respuestas desde el motor de búsqueda vectorial:
+> **Corrección:** una versión anterior armaba `{"$or": [{"origen": A}, {"destino": B}]}`, que mezcla las dos columnas en vez de cubrir las dos direcciones. Para "entre Madrid y Barcelona" dejaba afuera `RUTA-BCN-MAD` (origen BCN, destino MAD) y devolvía en su lugar `RUTA-MAD-FCO`, porque sale de Madrid. Con el filtro de las dos combinaciones, el TEST 3 devuelve las rutas BCN–MAD.
+
+Se ejecutaron las pruebas del script (`python vector_db.py`) obteniendo las siguientes respuestas desde el motor de búsqueda vectorial. Los textos y metadatos están abreviados; `dist` es la distancia coseno de ChromaDB (0 = idéntico). La corrida es sobre la base de B.1, **antes de la purga de B.5**, por eso en los TEST 1 y 3 aparecen dos documentos de la misma ruta (un original y su casi-duplicado):
 ```text
-TEST 1: Búsqueda Semántica + Vuelo Directo
--> Ruta directa inaugurada entre Reikiavik (KEF) y Madrid (MAD). Opción económica e ideal para turismo de auroras boreales y viajes nórdicos sin escalas.
-   Metadatos: {'tipo_aerolinea_dominante': 'low-cost', 'pais_origen': 'Islandia', 'pais_destino': 'España', 'origen': 'KEF', 'destino': 'MAD', 'tags_regionales': ['auroras boreales', 'islandia', 'escapada nórdica', 'directo'], 'categoria_precio': 'medio', 'vuelo_directo_disponible': True}
+TEST 1: Búsqueda Semántica + Filtro $or de ambos sentidos (Roma–Madrid, guardada como MAD→FCO)
+-> [dist=0.2604] La ruta Madrid–Roma (MAD–FCO) es una de las más transitadas del catálogo, con más de 1.400 vuelos...
+   Metadatos: origen=MAD, destino=FCO, categoria_precio=medio, vuelo_directo_disponible=True
+-> [dist=0.3190] El trayecto entre Madrid Barajas y Roma Fiumicino posee alta demanda para viajes cortos...
+   Metadatos: origen=MAD, destino=FCO, categoria_precio=medio, vuelo_directo_disponible=True
 
 TEST 2: Búsqueda Semántica + Categoría de Precio
--> Ruta directa inaugurada entre Reikiavik (KEF) y Madrid (MAD). Opción económica e ideal para turismo de auroras boreales y viajes nórdicos sin escalas.
-   Metadatos: {'categoria_precio': 'medio', 'tags_regionales': ['auroras boreales', 'islandia', 'escapada nórdica', 'directo'], 'pais_destino': 'España', 'pais_origen': 'Islandia', 'vuelo_directo_disponible': True, 'origen': 'KEF', 'destino': 'MAD', 'tipo_aerolinea_dominante': 'low-cost'}
+-> [dist=0.4592] El trayecto entre Madrid Barajas y Roma Fiumicino posee alta demanda para viajes cortos...
+   Metadatos: origen=MAD, destino=FCO, categoria_precio=medio, vuelo_directo_disponible=True
+-> [dist=0.4873] La ruta Madrid–Roma (MAD–FCO) es una de las más transitadas del catálogo...
+   Metadatos: origen=MAD, destino=FCO, categoria_precio=medio, vuelo_directo_disponible=True
 
-TEST 3: Ambos Filtros ($and NATIVO)
--> Ruta directa inaugurada entre Reikiavik (KEF) y Madrid (MAD). Opción económica e ideal para turismo de auroras boreales y viajes nórdicos sin escalas.
-   Metadatos: {'pais_destino': 'España', 'tipo_aerolinea_dominante': 'low-cost', 'destino': 'MAD', 'origen': 'KEF', 'categoria_precio': 'medio', 'vuelo_directo_disponible': True, 'tags_regionales': ['auroras boreales', 'islandia', 'escapada nórdica', 'directo'], 'pais_origen': 'Islandia'}
+TEST 3: Filtro Combinado ($and nativo con $or de ambos sentidos, categoría y directo)
+-> [dist=0.2779] Vuelos entre Barcelona y Madrid, el histórico corredor conocido como puente aéreo...
+   Metadatos: origen=BCN, destino=MAD, categoria_precio=medio, vuelo_directo_disponible=True
+-> [dist=0.2978] La ruta Barcelona–Madrid (BCN–MAD) es la de mayor volumen de todo el catálogo, con 3.470 vuelos...
+   Metadatos: origen=BCN, destino=MAD, categoria_precio=medio, vuelo_directo_disponible=True
+
+TEST 4: Consulta fuera de catálogo (Buenos Aires a Tokio)
+-> Sin resultados: ninguno superó el umbral de similitud.
 ```
+
+Los TEST 1 y 3 validan el `$or`: la consulta se hace en el orden inverso al que está guardado el documento (Roma–Madrid contra MAD→FCO; Madrid–Barcelona contra BCN→MAD) y aun así lo recupera. El TEST 4 muestra el umbral de C.2: la función descarta los resultados con distancia coseno mayor a `UMBRAL_DISTANCIA` (0.50), y como ningún vecino lo supera no devuelve nada; ver C.2 para la justificación del valor.
 
 Aplicar el filtrado de metadatos dentro de ChromaDB previo al cálculo de similitud evita procesar documentos irrelevantes, optimiza el consumo y garantiza respuestas precisas e integras.
 
-> **Nota (C.2):** el log anterior corresponde a la versión previa de `buscar_vuelos()`. Desde la corrección de C.2 la función además descarta los resultados con distancia coseno mayor a `UMBRAL_DISTANCIA` (0.50) y devuelve las distancias junto con cada resultado; ver C.2 para la justificación del valor.
 
 
 ### B.5 — ETL y purga semántica

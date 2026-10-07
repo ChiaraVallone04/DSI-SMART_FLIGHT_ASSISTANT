@@ -110,22 +110,30 @@ def filtrar_por_umbral(resultados: dict, umbral: float = UMBRAL_DISTANCIA) -> di
     }
 
 
-def buscar_vuelos(query_semantica: str, origen_o_destino: list[str] = None, categoria_precio: str = None, solo_directos: bool = False, n_resultados: int = 3, umbral_distancia: float = UMBRAL_DISTANCIA):
+def buscar_vuelos(query_semantica: str, ruta: list[str] = None, categoria_precio: str = None, solo_directos: bool = False, n_resultados: int = 3, umbral_distancia: float = UMBRAL_DISTANCIA):
     """
     Realiza una búsqueda híbrida en ChromaDB combinando similtud semántica
     con filtros nativos 'where' sin post-filtering manual, y descarta los
     resultados que superan el umbral de distancia (C.2).
+
+    `ruta` es un par de códigos IATA [A, B] sin importar el orden: cada documento
+    cubre ambas direcciones pero guarda un solo sentido en origen/destino (A.3),
+    así que el filtro acepta tanto A→B como B→A.
     """
     coleccion = obtener_coleccion()
 
     # construcción nativa del filtro where
     condiciones = []
 
-    if origen_o_destino and len(origen_o_destino) == 2:
-        org, dest = origen_o_destino
-        condiciones.append(
-            {"$or": [{"origen": {"$eq": org}}, {"destino": {"$eq": dest}}]}
-        )
+    if ruta:
+        if len(ruta) != 2:
+            raise ValueError(
+                f"ruta debe ser un par de códigos IATA [A, B], se recibió: {ruta!r}")
+        a, b = ruta
+        condiciones.append({"$or": [
+            {"$and": [{"origen": {"$eq": a}}, {"destino": {"$eq": b}}]},
+            {"$and": [{"origen": {"$eq": b}}, {"destino": {"$eq": a}}]},
+        ]})
 
     if categoria_precio:
         condiciones.append({"categoria_precio": {"$eq": categoria_precio}})
@@ -166,10 +174,11 @@ if __name__ == "__main__":
         for doc, meta, dist in zip(res["documents"][0], res["metadatas"][0], res["distances"][0]):
             print(f"-> [dist={dist:.4f}] {doc}\n   Metadatos: {meta}\n")
 
-    print("TEST 1: Búsqueda Semántica + Filtro $or (Origen MAD o Destino FCO)")
+    # el documento está guardado como MAD→FCO; se consulta en el orden inverso para probar que el $or cubre ambos sentidos
+    print("TEST 1: Búsqueda Semántica + Filtro $or de ambos sentidos (Roma–Madrid, guardada como MAD→FCO)")
     imprimir(buscar_vuelos(
-        query_semantica="vuelos desde Madrid o hacia Roma",
-        origen_o_destino=["MAD", "FCO"],
+        query_semantica="vuelos entre Roma y Madrid",
+        ruta=["FCO", "MAD"],
         n_resultados=2,
     ))
 
@@ -180,10 +189,11 @@ if __name__ == "__main__":
         n_resultados=2,
     ))
 
-    print("TEST 3: Filtro Combinado ($and nativo con $or de rutas y categoría)")
+    # RUTA-BCN-MAD está guardada como BCN→MAD: con el $or de un solo sentido esta consulta no la encontraba
+    print("TEST 3: Filtro Combinado ($and nativo con $or de ambos sentidos, categoría y directo)")
     imprimir(buscar_vuelos(
         query_semantica="vuelos directos entre Madrid y Barcelona",
-        origen_o_destino=["MAD", "BCN"],
+        ruta=["MAD", "BCN"],
         categoria_precio="medio",
         solo_directos=True,
         n_resultados=2,
