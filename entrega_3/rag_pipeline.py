@@ -3,8 +3,11 @@
 Uso:
     python entrega_3/rag_pipeline.py            # Parte A: matriz de resiliencia y trazabilidad
     python entrega_3/rag_pipeline.py --parte b2 # Parte B.2: re-indexado con chunking y comparación
+    python entrega_3/rag_pipeline.py --parte b3 # Parte B.3: reranking con LLM como juez
+    python entrega_3/rag_pipeline.py --parte b4 # Parte B.4: una corrida trazada en LangSmith
 """
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -20,8 +23,11 @@ from langchain_core.runnables import (
     RunnableParallel,
     RunnablePassthrough,
 )
+from langchain_core.tracers.context import collect_runs
+from langchain_core.tracers.langchain import wait_for_all_tracers
 from langchain_openai import ChatOpenAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pydantic import BaseModel, Field
 
 # el script vive en entrega_3/, pero reutiliza vector_db.py de la raíz del repo (Entrega 2)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -288,10 +294,12 @@ def reindexar_con_chunks():
 class ChunksRetriever(BaseRetriever):
     """Mismo contrato que VuelosRetriever (y el mismo umbral de C.2), pero sobre la colección de chunks."""
     k: int = K_DOCUMENTOS
+    umbral: float = UMBRAL_DISTANCIA
 
     def _get_relevant_documents(self, query: str, *, run_manager: CallbackManagerForRetrieverRun):
         resultado = filtrar_por_umbral(
-            obtener_coleccion_chunks().query(query_texts=[query], n_results=self.k)
+            obtener_coleccion_chunks().query(query_texts=[query], n_results=self.k),
+            self.umbral,
         )
         return [
             # "id" es la ficha de origen, para que el prompt cite la ruta igual que en la Parte A
@@ -368,6 +376,179 @@ def ejecutar_parte_b2():
         print(f"Respuesta: {resultado['answer']}")
 
 
+# B.3 — RERANKING CON LLM COMO JUEZ
+# El retriever trae más candidatos de los que se usan (k = 8) y un LLM juez puntúa cada uno de 0 a 10
+# según cuánto sirve para responder la pregunta; después el CÓDIGO decide: descarta los que no llegan al
+# puntaje mínimo y se queda con los N_FINALES mejores. El LLM solo puntúa, igual que en la Parte A la
+# decisión de "no tengo eso" no queda en manos del modelo.
+K_CANDIDATOS = 8
+N_FINALES = 3
+PUNTAJE_MINIMO = 6
+# sin corte por distancia en la recuperación: B.2 mostró que los chunks con la respuesta quedan justo en el
+# borde del umbral de C.2 (0.50-0.53) y ese corte los descartaba antes de que alguien los evaluara. Ahora el
+# filtro de relevancia es el puntaje del juez
+UMBRAL_CANDIDATOS = 1.0
+
+
+class PuntajeFragmento(BaseModel):
+    id_chunk: str = Field(description="Identificador del fragmento, tal como figura entre corchetes")
+    puntaje: int = Field(description="Qué tan útil es el fragmento para responder la pregunta, de 0 a 10")
+
+
+class EvaluacionFragmentos(BaseModel):
+    puntajes: list[PuntajeFragmento] = Field(description="Un puntaje por cada fragmento recibido")
+
+
+prompt_juez = ChatPromptTemplate.from_template("""
+Eres un juez de relevancia para un sistema de búsqueda de rutas aéreas.
+
+Recibes una pregunta y una lista de fragmentos de un catálogo. Asigna a CADA fragmento un puntaje
+entero de 0 a 10 según cuánto sirve para responder esa pregunta:
+
+- 9 a 10: el fragmento contiene de forma explícita el dato que responde la pregunta.
+- 6 a 8: el fragmento contiene información directamente útil para responderla.
+- 3 a 5: trata un tema parecido (misma ciudad, mismo país, mismo perfil de ruta) pero no responde.
+- 0 a 2: no tiene relación con la pregunta.
+
+Si la pregunta afirma algo (por ejemplo, que una ruta tiene vuelo directo o cierto precio), un
+fragmento que CONTRADICE o desmiente esa afirmación también es muy útil: el sistema tiene que poder
+corregir al usuario con el dato real. Puntúalo alto, igual que si la confirmara.
+
+Evalúa solo lo que está escrito en cada fragmento; no uses conocimiento propio. Devuelve un puntaje
+por cada identificador recibido.
+
+Pregunta:
+{question}
+
+Fragmentos:
+{fragmentos}
+""")
+
+juez = prompt_juez | llm.with_structured_output(EvaluacionFragmentos)
+
+retriever_candidatos = ChunksRetriever(k=K_CANDIDATOS, umbral=UMBRAL_CANDIDATOS)
+
+
+# paso 1 del reranking: una sola llamada al juez puntúa los 8 candidatos
+def puntuar_con_juez(entrada: dict):
+    candidatos = entrada["candidatos"]
+    if not candidatos:
+        return []
+    fragmentos = "\n\n".join(f"[{d.metadata['id_chunk']}] {d.page_content}" for d in candidatos)
+    evaluacion = juez.invoke({"question": entrada["question"], "fragmentos": fragmentos})
+    puntajes = {p.id_chunk: max(0, min(10, p.puntaje)) for p in evaluacion.puntajes}
+    return [
+        Document(
+            page_content=d.page_content,
+            # un candidato que el juez omitió cuenta como 0
+            metadata={**d.metadata, "puntaje_juez": puntajes.get(d.metadata["id_chunk"], 0)},
+        )
+        for d in candidatos
+    ]
+
+
+# paso 2: el código aplica el corte y el orden; si nada llega al puntaje mínimo, el contexto queda vacío
+# y generar_respuesta responde la frase de escape sin invocar al LLM
+def seleccionar_mejores(entrada: dict):
+    elegidos = [d for d in entrada["puntuados"] if d.metadata["puntaje_juez"] >= PUNTAJE_MINIMO]
+    elegidos.sort(key=lambda d: (-d.metadata["puntaje_juez"], d.metadata["distancia"]))
+    return elegidos[:N_FINALES]
+
+
+# CHAIN AVANZADO: chunks (B.2) -> 8 candidatos -> juez -> top 3 -> prompt -> LLM -> parser.
+# Devuelve la pregunta, los candidatos, los puntuados, el contexto final y la respuesta.
+# Los run_name hacen que cada paso se vea con nombre propio en la traza de LangSmith (B.4).
+rag_chain_avanzado = (
+    RunnableParallel(candidatos=retriever_candidatos, question=RunnablePassthrough())
+    .assign(puntuados=RunnableLambda(puntuar_con_juez).with_config(run_name="juez_llm"))
+    .assign(context=RunnableLambda(seleccionar_mejores).with_config(run_name="seleccion_top_n"))
+    .assign(answer=generar_respuesta)
+)
+
+
+def mostrar_reranking(resultado):
+    """Tabla de los candidatos recuperados con su puntaje y si el código los seleccionó."""
+    elegidos = {d.metadata["id_chunk"] for d in resultado["context"]}
+    print(f"  {'#':>2}  {'chunk':<24} {'dist':>6}  {'juez':>4}  elegido")
+    for puesto, doc in enumerate(resultado["puntuados"], 1):
+        meta = doc.metadata
+        marca = "sí" if meta["id_chunk"] in elegidos else "-"
+        print(f"  {puesto:>2}  {meta['id_chunk']:<24} {meta['distancia']:>6.3f}  {meta['puntaje_juez']:>4}  {marca}")
+
+
+def ejecutar_parte_b3():
+    print("B.3 — Reranking con LLM como juez")
+    print(f"Candidatos recuperados: k = {K_CANDIDATOS} | seleccionados: {N_FINALES} | "
+          f"puntaje mínimo del juez: {PUNTAJE_MINIMO}/10 | sin corte por distancia en la recuperación\n")
+
+    col_docs, col_chunks = obtener_coleccion(), obtener_coleccion_chunks()
+    print("Sobre las consultas de B.1 (ruta esperada):")
+    for query, ruta_esperada in consultas_falla_b1:
+        resultado = rag_chain_avanzado.invoke(query)
+        rutas = [d.metadata["id"] for d in resultado["context"]]
+        if ruta_esperada in rutas:
+            doc = next(d for d in resultado["context"] if d.metadata["id"] == ruta_esperada)
+            posicion = rutas.index(ruta_esperada) + 1
+            salida = f"puesto {posicion} de {len(rutas)}, {doc.metadata['id_chunk']}, juez {doc.metadata['puntaje_juez']}/10"
+        else:
+            salida = f"no seleccionada (elegidas: {rutas or 'ninguna'})"
+        print(f"- {query} [{ruta_esperada}]")
+        print(f"    básico (fichas) : {describir(*mejor_posicion(query, ruta_esperada, col_docs, None))}")
+        print(f"    chunks 500/100  : {describir(*mejor_posicion(query, ruta_esperada, col_chunks, 'id_documento'))}")
+        print(f"    chunks + juez   : {salida}")
+        print(f"    respuesta       : {resultado['answer']}")
+
+    print("\nRegresión sobre la matriz de resiliencia de la Parte A:")
+    for caso in casos_prueba:
+        resultado = rag_chain_avanzado.invoke(caso["pregunta"])
+        print(f"\n[{caso['tipo']}] {caso['pregunta']}")
+        mostrar_reranking(resultado)
+        print(f"  Respuesta: {resultado['answer']}")
+
+
+# B.4 — CAPTURA DE TRAZA (LangSmith)
+# LangChain manda la traza solo con las variables de entorno (en .env, que vector_db.py ya carga):
+#   LANGSMITH_TRACING=true | LANGSMITH_API_KEY=<clave> | LANGSMITH_PROJECT=<nombre del proyecto>
+PREGUNTA_B4 = "¿En qué ruta solo se ofrece clase económica?"
+
+
+def langsmith_activo():
+    return os.getenv("LANGSMITH_TRACING", "").lower() == "true" and bool(os.getenv("LANGSMITH_API_KEY"))
+
+
+def ejecutar_parte_b4(pregunta: str):
+    proyecto = os.getenv("LANGSMITH_PROJECT", "default")
+    print("B.4 — Traza en LangSmith")
+    if not langsmith_activo():
+        print("LangSmith NO está activado: faltan variables en .env. Completar LANGSMITH_TRACING=true, "
+              "LANGSMITH_API_KEY y LANGSMITH_PROJECT (ver .env.example) y volver a correr.")
+        sys.exit(1)
+    print(f"Tracing activo | proyecto: {proyecto}\nPregunta: {pregunta}\n")
+
+    with collect_runs() as coleccion_runs:
+        resultado = rag_chain_avanzado.invoke(
+            pregunta,
+            config={
+                "run_name": "B4 RAG avanzado (chunking + reranking)",
+                "tags": ["entrega_3", "B4"],
+                "metadata": {"k_candidatos": K_CANDIDATOS, "n_finales": N_FINALES, "puntaje_minimo": PUNTAJE_MINIMO},
+            },
+        )
+    wait_for_all_tracers()
+
+    print(f"Recuperados: {len(resultado['candidatos'])} candidatos -> seleccionados tras el reranking: {len(resultado['context'])}")
+    mostrar_reranking(resultado)
+    print(f"\nRespuesta: {resultado['answer']}")
+
+    run = coleccion_runs.traced_runs[0]
+    print(f"\nID de la ejecución: {run.id}")
+    try:
+        from langsmith import Client
+        print(f"Traza: {Client().get_run_url(run=run, project_name=proyecto)}")
+    except Exception as error:
+        print(f"(no se pudo armar el enlace a la traza: {error}). Buscarla en LangSmith, proyecto '{proyecto}'.")
+
+
 # EJECUCIÓN
 def ejecutar_parte_a():
 
@@ -398,11 +579,17 @@ def ejecutar_parte_a():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Pipeline RAG de la Entrega 3")
-    parser.add_argument("--parte", choices=["a", "b2"], default="a",
-                        help="a: matriz de resiliencia y trazabilidad (default) | b2: chunking con solapamiento")
+    parser.add_argument("--parte", choices=["a", "b2", "b3", "b4"], default="a",
+                        help="a: matriz de resiliencia y trazabilidad (default) | b2: chunking con solapamiento | "
+                             "b3: reranking con LLM juez | b4: corrida trazada en LangSmith")
+    parser.add_argument("--pregunta", default=PREGUNTA_B4, help="pregunta a trazar en la parte b4")
     argumentos = parser.parse_args()
 
     if argumentos.parte == "b2":
         ejecutar_parte_b2()
+    elif argumentos.parte == "b3":
+        ejecutar_parte_b3()
+    elif argumentos.parte == "b4":
+        ejecutar_parte_b4(argumentos.pregunta)
     else:
         ejecutar_parte_a()

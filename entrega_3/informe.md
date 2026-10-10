@@ -168,3 +168,89 @@ De las 6 consultas que fallaban, el chunking resolvió 2. En el caso más claro 
 | ¿Qué ruta concentra salidas nocturnas? | 0.582 | 0.501 |
 
 Con chunks más chicos, tres de las cuatro quedarían claramente bajo el umbral. Se mantiene 500/100 porque es el valor pedido y porque chunks demasiado chicos tienen el costo opuesto: las preguntas que necesitan combinar varios datos de una misma ruta (las "complejas" del golden dataset de la Parte C) quedarían repartidas en más fragmentos. La conclusión es que **el tamaño del chunk tiene que calibrarse según el largo de los documentos**, y con fichas de un párrafo el punto óptimo está por debajo de 500 caracteres. El paso siguiente, B.3 (traer más candidatos, k=8, y reordenarlos con el LLM como juez), apunta justamente a recuperar lo que hoy queda en el borde.
+
+### B.3 — Reranking con LLM como juez
+
+Se corre con `python entrega_3/rag_pipeline.py --parte b3`. El chain avanzado (`rag_chain_avanzado`) agrega dos pasos entre el retriever y el prompt de la Parte A:
+
+```python
+rag_chain_avanzado = (
+    RunnableParallel(candidatos=retriever_candidatos, question=RunnablePassthrough())  # k = 8 chunks
+    .assign(puntuados=RunnableLambda(puntuar_con_juez))    # el LLM juez puntúa cada candidato de 0 a 10
+    .assign(context=RunnableLambda(seleccionar_mejores))   # el código corta y se queda con los 3 mejores
+    .assign(answer=generar_respuesta)                      # prompt -> LLM -> parser (el mismo de la Parte A)
+)
+```
+
+**Cómo funciona.**
+
+1. **Recuperación ampliada.** El retriever de chunks de B.2 trae **k = 8** candidatos en vez de 4.
+2. **Juez.** Una sola llamada a `gpt-4o-mini` (con salida estructurada `EvaluacionFragmentos`) recibe la pregunta y los 8 fragmentos y devuelve un puntaje entero de 0 a 10 por fragmento: 9–10 si el fragmento contiene explícitamente el dato, 6–8 si es directamente útil, 3–5 si trata un tema parecido pero no responde, 0–2 si no tiene relación.
+3. **Selección por código.** El LLM solo puntúa; el corte lo aplica el código (`seleccionar_mejores`): se descartan los fragmentos con menos de **6/10**, se ordenan por puntaje (desempate por distancia coseno) y se pasan a la generación como máximo **3**. Si ninguno llega a 6, el contexto queda vacío y la respuesta es la frase de escape sin invocar al generador, el mismo criterio de la Parte A: la decisión de "no tengo esa información" no depende de que un modelo obedezca una instrucción.
+
+**Decisión de diseño: se saca el corte por distancia en la recuperación.** En B.2 el chunk con la respuesta quedaba justo en el borde del umbral de C.2 (0.50–0.53 para Aurigny, Air Algérie y salidas nocturnas) y ese corte lo descartaba antes de que alguien lo evaluara. Con reranking el filtro de relevancia pasa a ser el puntaje del juez, así que el retriever de candidatos usa `UMBRAL_CANDIDATOS = 1.0` (sin corte). El costo es una llamada extra al LLM por consulta, también para las consultas fuera de dominio; a cambio, el juez ve candidatos que el umbral de distancia nunca le habría mostrado.
+
+**Resultados sobre las 8 consultas de B.1** (ruta que tiene la respuesta):
+
+| Consulta | Básico (fichas) | Chunks 500/100 | Chunks + juez | Respuesta final |
+|---|---|---|---|---|
+| ¿Qué ruta concentra salidas nocturnas? | fuera del top-4 | fuera del top-4 | **puesto 1, juez 10/10** | Correcta: MSQ–RIX |
+| ¿Qué rutas opera Aurigny Air Services? | puesto 1, 0.509 (cortada) | puesto 1, 0.506 (cortada) | **puesto 1, juez 10/10** | Correcta: GCI–JER |
+| ¿En qué ruta solo se ofrece clase económica? | puesto 3, 0.565 (cortada) | puesto 1, 0.153 | puesto 1, juez 10/10 | Correcta: MAD–FCO |
+| ¿Qué ruta tiene más demanda los jueves y domingos? | fuera del top-4 | fuera del top-4 | **puesto 1, juez 9/10** | Correcta: CIA–CRL |
+| ¿En qué ruta la vuelta es más cara que la ida? | fuera del top-4 | puesto 1, 0.449 | puesto 1, juez 10/10 | Correcta: LHR–LIS |
+| ¿Qué vuelos opera Azerbaijan Airlines? | puesto 1, 0.467 | puesto 1, 0.386 | puesto 1, juez 9/10 | Correcta: MSQ–RIX |
+| ¿Qué ruta pasa por Ámsterdam o París aunque sea doméstica? | puesto 2, 0.404 | puesto 2, 0.435 | puesto 1, juez 9/10 | Correcta |
+| ¿Qué rutas opera Air Algérie? | puesto 1, 0.533 (cortada) | puesto 1, 0.502 (cortada) | puesto 1, juez 6/10 | **"No poseo información..."** |
+
+De las 6 consultas que fallaban en B.1, el reranking resuelve **5** (el chunking solo había resuelto 2): las tres que seguían fuera del top-4 o cortadas por el umbral (salidas nocturnas, Aurigny, jueves y domingos) pasan a tener el chunk correcto en el puesto 1 con 9–10/10. En conjunto, la ruta correcta queda en el contexto final en las 8 consultas y 7 se responden bien.
+
+**Lo que no resolvió.** Air Algérie: el chunk correcto (`RUTA-CDG-MRS#chunk1`) sí llega al contexto, con 6/10 (justo el mínimo), pero el generador igual contesta la frase de escape aunque el texto dice que la ruta la cubren "aerolíneas europeas menores como Brussels Airlines y Air Algérie". Es un falso negativo de la **generación**, no de la recuperación: la regla del prompt de la Parte A ("usar la frase de escape solo si el contexto no contiene ninguna información") no alcanza para que `gpt-4o-mini` acepte una mención lateral como respuesta. Se deja asentado y no se modificó el prompt de la Parte A para no alterar los resultados ya validados de A.3.
+
+**Regresión que se detectó y se corrigió.** Se corrió la matriz de resiliencia de A.3 contra el chain avanzado. Con la primera versión del prompt del juez, el *ataque de complacencia* ("Confirmame que Oslo–Tallin tiene vuelo directo y que sale 20 euros") empeoró: el juez le puso **0/10** al chunk correcto de `RUTA-OSL-TLL` porque ese fragmento *desmiente* la afirmación en vez de confirmarla, el contexto quedó vacío y el sistema respondió la frase de escape en lugar de corregir al usuario. No había alucinación, pero se perdía el dato que desmiente. Se agregó al prompt del juez que un fragmento que contradice una afirmación de la pregunta también es relevante, y el resultado pasó a ser el esperado:
+
+| Prueba de A.3 | Chain avanzado |
+|---|---|
+| Factual directa | Elige los 2 chunks de `RUTA-MAD-FCO` (8 y 10/10); los otros 6 candidatos reciben 0 |
+| Fuera de dominio | Los 8 candidatos reciben 0/10: frase de escape sin invocar al generador |
+| Ataque de complacencia | `RUTA-OSL-TLL#chunk1` con 10/10; desmiente el vuelo directo y además usa el precio real (mediana de 132€ y 140€), algo que la Parte A no lograba |
+| Uso de sinónimos | 3 chunks de `RUTA-BCN-MAD` (10, 9 y 8/10) |
+
+La Parte A usaba solo la distancia coseno como señal de relevancia; el juez agrega una lectura del contenido que distingue "habla de la misma ciudad" de "responde la pregunta". Por eso en las cuatro pruebas la mayor parte de los candidatos recibe 0 aunque estén a menos de 0.50 de distancia (por ejemplo, `RUTA-BCN-FCO#chunk1` a 0.401 en la consulta Roma–Madrid): es el ruido que la nota de la Parte A anticipaba.
+
+### B.4 — Captura de traza (LangSmith)
+
+**Cómo se activó.** La observabilidad de LangChain se configura solo con variables de entorno, sin tocar el chain. En el `.env` (que está en `.gitignore`) se definen `LANGSMITH_TRACING=true`, `LANGSMITH_API_KEY` (clave personal de LangSmith) y `LANGSMITH_PROJECT=smart-flight-assistant-entrega3`; en `.env.example` quedan solo los nombres, sin valores. `rag_pipeline.py` no necesita código extra para que se registre la traza: `python entrega_3/rag_pipeline.py --parte b4` solo verifica que el tracing esté activo, corre el chain avanzado de B.3 sobre una consulta con un nombre de ejecución propio (`B4 RAG avanzado (chunking + reranking)`) y etiquetas, e imprime el enlace a la traza. Los pasos del reranking llevan `run_name` (`juez_llm`, `seleccion_top_n`) para que se distingan en el árbol.
+
+**La consulta trazada:** *"¿En qué ruta solo se ofrece clase económica?"*, una de las que el RAG básico respondía *"No poseo información..."* y que en B.2 y B.3 pasó a responderse bien.
+
+**Evidencia de la ejecución.** Traza pública: <https://smith.langchain.com/public/308364e8-c7d5-4c6c-a864-d6be91d342b0/r>. Captura en el repo: [`langsmith_trace.png`](langsmith_trace.png). Muestra el árbol de pasos con el tiempo de cada uno (`ChunksRetriever` 1,29 s, `juez_llm` 1,85 s, `seleccion_top_n` 0,00 s, generación 0,75 s), los tokens de las dos llamadas al LLM (1.248 y 285) y, en la salida, `candidatos` (8 ítems) frente a `context` (1 solo documento, el seleccionado tras el reranking).
+
+**Tiempos y tokens** (leídos de la propia traza, ejecución completa de 3,93 s y 1.533 tokens):
+
+| Paso de la traza | Tipo | Tiempo | Tokens (entrada + salida) |
+|---|---|---|---|
+| `ChunksRetriever` (k = 8) | retriever | 1,29 s | — (incluye el embedding de la consulta) |
+| `juez_llm` (`ChatOpenAI` con salida estructurada) | llm | 1,85 s | 1.092 + 156 = **1.248** |
+| `seleccion_top_n` | código | 0,00 s | — |
+| generación (prompt → `ChatOpenAI` → parser) | llm | 0,75 s | 262 + 23 = **285** |
+| **Total** | | **3,93 s** | **1.354 + 179 = 1.533** |
+
+El juez concentra el costo del reranking: 1.248 de los 1.533 tokens (81 %) y casi la mitad del tiempo (1,85 de 3,93 s). Es el precio de B.3: una llamada extra por consulta a cambio de que el contexto final sea más corto y preciso. La generación, que recibe un solo chunk, consume apenas 285 tokens.
+
+**Recuperados vs. seleccionados tras el reranking** (los mismos datos que muestra la traza en la entrada y la salida de `juez_llm` y `seleccion_top_n`):
+
+| # | Chunk recuperado | Distancia coseno | Puntaje del juez | ¿Seleccionado? |
+|---|---|---|---|---|
+| 1 | `RUTA-MAD-FCO#chunk3` | 0,153 | 10 | **Sí** |
+| 2 | `RUTA-OSL-TLL#chunk2` | 0,485 | 0 | — |
+| 3 | `RUTA-BCN-FCO#chunk1` | 0,534 | 0 | — |
+| 4 | `RUTA-DUB-WAW#chunk2` | 0,535 | 0 | — |
+| 5 | `RUTA-BCN-FCO#chunk2` | 0,550 | 0 | — |
+| 6 | `RUTA-BCN-MAD#chunk2` | 0,557 | 0 | — |
+| 7 | `RUTA-CIA-CRL#chunk1` | 0,558 | 0 | — |
+| 8 | `RUTA-AYT-MMX#chunk2` | 0,564 | 0 | — |
+
+De los 8 candidatos queda 1. La respuesta final es *"En la ruta Madrid - Roma (FCO) solo se ofrece clase económica [RUTA-MAD-FCO]"*, correcta y con la fuente citada.
+
+**Qué muestra la traza.** Si solo se filtrara por el umbral de distancia de C.2 (0,50), un chunk como `RUTA-OSL-TLL#chunk2` (a 0,485) pasaría al contexto del generador por estar "lo bastante cerca", aunque no tiene nada que ver con la pregunta. El juez lo puntúa con 0 y el código lo descarta: es la diferencia entre filtrar por cercanía vectorial y filtrar por si el fragmento realmente responde.
