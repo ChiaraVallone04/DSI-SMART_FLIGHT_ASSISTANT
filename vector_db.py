@@ -13,8 +13,10 @@ if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY no encontrada en el entorno.")
 
 MODELO_EMBEDDING = "text-embedding-3-small"
-RUTA_BASE_CONOCIMIENTO = "base_conocimiento.json"
-RUTA_CHROMA = "chroma_db"
+# rutas ancladas a la carpeta de este archivo: funcionan igual si se importa desde otra carpeta (ej. entrega_3/)
+RAIZ_REPO = os.path.dirname(os.path.abspath(__file__))
+RUTA_BASE_CONOCIMIENTO = os.path.join(RAIZ_REPO, "base_conocimiento.json")
+RUTA_CHROMA = os.path.join(RAIZ_REPO, "chroma_db")
 NOMBRE_COLECCION = "vuelos_smart_flight_assistant"
 
 # C.2 — umbral de aceptación en la recuperación, en distancia coseno de ChromaDB (0 = idéntico, menor = más cercano).

@@ -8,3 +8,6 @@ openai==3.13.0
 faiss-cpu==1.15.0
 chromadb==1.5.9
 numpy==2.5.3
+langchain-core==1.6.9
+langchain-openai==1.7.0
+langchain-text-splitters==1.1.3

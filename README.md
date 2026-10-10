@@ -34,3 +34,11 @@ Los scripts de esta entrega leen y reconstruyen todo a partir de `base_conocimie
 4. **`python B6_test_killer_queries.py`** (B.6) — corre las 3 Killer Queries contra la colección purgada, aplica el umbral de C.2 y, si algún resultado lo supera, genera el contexto + respuesta del LLM (si no, responde "no dispongo de esa información" sin invocar al LLM) (ver resultados en [`resultados_killer_queries.md`](resultados_killer_queries.md)).
 
 El detalle narrativo completo (justificaciones, capturas, reflexiones) está en [`informe_entrega2.md`](informe_entrega2.md). `faiss_index/` y `chroma_db/` no se versionan (`.gitignore`): se reconstruyen enteros desde `base_conocimiento.json` corriendo los pasos de arriba.
+
+## Entrega 3 — Sistema RAG con LangChain
+
+Usa la misma base de la Entrega 2, así que primero hay que haberla construido (pasos 2 y 3 de arriba: `vector_db.py` y `etl_purga.py`). Después:
+
+**`python entrega_3/rag_pipeline.py`** (Parte A) — pipeline RAG con LangChain LCEL (retriever → prompt con guardrails → `gpt-4o-mini` → parser) sobre la colección ChromaDB de la Entrega 2. Corre la matriz de resiliencia de 4 pruebas (factual, fuera de dominio, ataque de complacencia y sinónimos) y muestra, para cada respuesta, los documentos fuente con su fragmento y sus metadatos. Usa la misma `OPENAI_API_KEY` del `.env`. Resultados y análisis en [`entrega_3/informe.md`](entrega_3/informe.md).
+
+**`python entrega_3/rag_pipeline.py --parte b2`** (Parte B.2) — corta las fichas en chunks de 500 caracteres con 100 de solapamiento, los indexa en una colección nueva (`vuelos_smart_flight_assistant_chunks`, sin tocar la de la Entrega 2) y compara la recuperación contra la versión básica sobre las consultas de detalle de B.1.
