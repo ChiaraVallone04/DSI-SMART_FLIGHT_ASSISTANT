@@ -254,3 +254,118 @@ El juez concentra el costo del reranking: 1.248 de los 1.533 tokens (81 %) y cas
 De los 8 candidatos queda 1. La respuesta final es *"En la ruta Madrid - Roma (FCO) solo se ofrece clase económica [RUTA-MAD-FCO]"*, correcta y con la fuente citada.
 
 **Qué muestra la traza.** Si solo se filtrara por el umbral de distancia de C.2 (0,50), un chunk como `RUTA-OSL-TLL#chunk2` (a 0,485) pasaría al contexto del generador por estar "lo bastante cerca", aunque no tiene nada que ver con la pregunta. El juez lo puntúa con 0 y el código lo descarta: es la diferencia entre filtrar por cercanía vectorial y filtrar por si el fragmento realmente responde.
+
+---
+
+## Parte C — Evaluación con RAGAS
+
+### C.1 — Golden dataset
+
+El dataset está en [`golden_dataset.json`](golden_dataset.json), separado del código de evaluación para poder reutilizarlo en las Entregas 4 y 5; `evaluacion_ragas.py` lo carga desde ese archivo al ejecutarse. Tiene 10 preguntas del dominio con su respuesta esperada (*ground truth*), distribuidas como pide la consigna:
+
+| ID | Tipo | Pregunta | Ruta(s) que la responden |
+|---|---|---|---|
+| S1 | Simple | ¿Cuánto dura el vuelo entre Guernsey y Jersey? | `RUTA-GCI-JER` |
+| S2 | Simple | ¿Qué aerolínea domina la ruta Londres–Zúrich? | `RUTA-LHR-ZRH` |
+| S3 | Simple | ¿Cuánto dura el vuelo directo entre Barcelona y Madrid? | `RUTA-BCN-MAD` |
+| C1 | Compleja | Para ir a Roma, ¿es más barato salir desde Madrid o desde Barcelona? | `RUTA-BCN-FCO` + `RUTA-MAD-FCO` |
+| C2 | Compleja | ¿Las rutas Oslo–Tallin y Dublín–Varsovia tienen vuelo directo? ¿Cuál es más barata? | `RUTA-OSL-TLL` + `RUTA-DUB-WAW` |
+| C3 | Compleja | En la ruta Londres–Lisboa, ¿qué porcentaje es directo, qué aerolíneas la operan y en qué sentido es más cara? | `RUTA-LHR-LIS` (varios chunks) |
+| E1 | Escape | ¿Cuánto sale un vuelo de Nueva York a Sídney? | — (fuera del catálogo) |
+| E2 | Escape | ¿Cuánto cuesta despachar una valija extra en la ruta Madrid–Roma? | — (la ruta existe, el dato no) |
+| I1 | Informal | che, ¿cuál es el vuelo más barato que tienen para ir de Milán a París? | `RUTA-BGY-BVA` |
+| I2 | Informal | tengo una reunión en Madrid y vuelvo en el día, salgo de Barcelona, ¿qué onda los vuelos? | `RUTA-BCN-MAD` |
+
+**Criterios de diseño.**
+
+- **El ground truth sale literalmente de las fichas.** Context Recall compara el *ground truth* contra el contexto recuperado: si la respuesta esperada tuviera datos que no están en la base, la métrica bajaría por un error del dataset y no del sistema.
+- **Ninguna pregunta repite las de A.3 ni las de B.1.** Esas consultas se usaron para ajustar el pipeline (el orden de las reglas del prompt, el umbral, el prompt del juez); evaluar con ellas inflaría las métricas.
+- **Las simples tienen la respuesta en un solo chunk.** Se verificó sobre la colección de chunks de B.2: la respuesta de S1, S2 y S3 está entera en un único fragmento.
+- **Las complejas combinan chunks de dos maneras:** C1 y C2 necesitan dos fichas distintas; C3 necesita datos de dos fragmentos de la misma ficha (el porcentaje de directos y las aerolíneas están en `RUTA-LHR-LIS#chunk1`, los precios por sentido en `#chunk2`).
+- **Las dos de escape prueban dos defensas distintas.** E1 está fuera del catálogo: en el básico la corta el umbral de distancia, y en el avanzado (que recupera 8 candidatos sin umbral) el juez les pone menos de 6 a todos; en los dos casos el contexto queda vacío y se responde la frase de escape sin invocar al generador. E2 nombra una ruta que existe, así que la ficha se recupera, pero el dato (equipaje) no está: ahí la que tiene que escapar es la regla del prompt. Su *ground truth* es la frase de escape exacta del pipeline.
+- **Las informales usan registro coloquial** ("che", "qué onda", "vuelvo en el día") sin nombrar los datos que se piden. I2 se parece a la Killer Query 1 de la Entrega 2, que falló por el umbral, pero acá ambos retrievers encuentran `RUTA-BCN-MAD` en primer lugar. Su dificultad es otra: la respuesta esperada usa datos de los tres chunks de esa ficha, y el retriever de chunks (k = 4) no recupera el tercero (horarios y días de mayor demanda). Es un caso donde el chunking podría bajar el Context Recall en lugar de subirlo. (En C.3 se ve que el pipeline avanzado, con 8 candidatos y el juez, sí lo recupera.)
+
+
+### C.2 — Baseline RAGAS (RAG básico)
+
+Código: [`evaluacion_ragas.py`](evaluacion_ragas.py). Se corre con `python entrega_3/evaluacion_ragas.py` (o `--pipeline basico` para correr solo el baseline). Resultados completos, con la respuesta y las fuentes de cada pregunta, en [`resultados_ragas.json`](resultados_ragas.json).
+
+**Cómo se evalúa.** Cada pregunta del golden dataset se pasa por el chain de la Parte A (`rag_chain`: fichas completas, k = 4, umbral 0.50), y la respuesta, los documentos recuperados y el *ground truth* se evalúan con las cuatro métricas de RAGAS 0.4.3 (`ragas.metrics.collections`), usando `gpt-4o-mini` como evaluador y `text-embedding-3-small` para Answer Relevancy. Siguiendo la teoría de la cátedra, dos métricas evalúan la **generación** (Faithfulness: ¿la respuesta está respaldada por el contexto?; Answer Relevancy: ¿responde la pregunta sin divagar?) y dos la **recuperación** (Context Precision: ¿los primeros chunks son útiles?; Context Recall: ¿el contexto tiene toda la evidencia necesaria?). Las versiones quedan fijadas en `requirements.txt`: RAGAS 0.4.3 necesita `langchain-community==0.4.1` (la 0.4.2 ya no trae un módulo que RAGAS importa) y `openai==1.109.1` (las versiones 2.x y 3.x son incompatibles con `instructor`, una dependencia de RAGAS).
+
+**Dos decisiones de medición.**
+
+- **Contexto vacío = "no aplica".** En E1 el contexto llega vacío (en el básico lo corta el umbral de distancia; en el avanzado, el juez). Faithfulness, Context Precision y Context Recall no se pueden calcular sin contexto (RAGAS da error), así que se registran como `n/a` en lugar de inventar un valor.
+- **Dos promedios.** Answer Relevancy le pone 0 a toda respuesta evasiva ("no sé"), así que la frase de escape correcta igual baja el promedio. Por eso se reporta el promedio sobre las 10 preguntas y sobre las 8 que tienen respuesta.
+
+**Resultados por pregunta (básico):**
+
+| ID | Faithfulness | Answer Relevancy | Context Precision | Context Recall |
+|---|---|---|---|---|
+| S1 | 0.500 | 0.962 | 1.000 | 1.000 |
+| S2 | 1.000 | 0.993 | 1.000 | 1.000 |
+| S3 | 1.000 | 0.926 | 1.000 | 1.000 |
+| C1 | 1.000 | 0.835 | 0.583 | 1.000 |
+| C2 | 1.000 | 0.848 | 1.000 | 1.000 |
+| C3 | 1.000 | 0.745 | 1.000 | 1.000 |
+| E1 | n/a | 0.000 | n/a | n/a |
+| E2 | 0.000 | 0.000 | 0.000 | 0.000 |
+| I1 | 0.833 | 0.789 | 1.000 | 1.000 |
+| I2 | 1.000 | 0.580 | 1.000 | 1.000 |
+
+**Lectura.** Las 10 respuestas del básico son correctas: ninguna inventa datos y las dos de escape responden la frase de escape. Los puntajes bajos tienen explicaciones puntuales:
+
+- **E2 (0 en todo):** la respuesta es la correcta ("No poseo información…"), pero se recuperaron las fichas de Madrid–Roma y Barcelona–Roma, que no hablan de equipaje. RAGAS evalúa una respuesta de "no sé" contra un contexto que habla de otra cosa, y las métricas pierden sentido: no miden un error del sistema. Por eso el análisis se apoya en el promedio sin las preguntas de escape.
+- **S1 (Faithfulness 0.500):** la respuesta ("dura apenas 25 minutos cuando es directo") está escrita literalmente en la ficha. Es variabilidad del LLM evaluador, no un error del sistema.
+- **C1 (Context Precision 0.583):** el retriever pasó 4 fichas en este orden: `RUTA-MAD-FCO`, `RUTA-BCN-FCO`, `RUTA-BCN-MAD`, `RUTA-CIA-CRL`. La teoría define Context Precision como si "los fragmentos más útiles y relevantes aparecen en los primeros lugares del ranking": RAGAS promedia la precisión en cada posición donde hay un fragmento útil. Con 4 fragmentos, el único patrón de veredictos que da 0.583 es *no útil, útil, útil, no útil*: el evaluador consideró no útil a `RUTA-MAD-FCO`, en el primer puesto, aunque su mediana de 150€ es parte del *ground truth*. Hay ruido real en el contexto (`RUTA-CIA-CRL` y `RUTA-BCN-MAD` no sirven para comparar precios a Roma), pero el puntaje exacto también refleja un veredicto discutible del evaluador.
+
+### C.3 — Comparativa: RAG básico vs. RAG avanzado
+
+El RAG avanzado es `rag_chain_avanzado` de la Parte B: chunks de 500/100, k = 8 candidatos, LLM juez y top 3. Se evaluó con el mismo dataset, las mismas métricas y el mismo evaluador.
+
+**Resultados por pregunta (avanzado):**
+
+| ID | Faithfulness | Answer Relevancy | Context Precision | Context Recall |
+|---|---|---|---|---|
+| S1 | 1.000 | 0.977 | 1.000 | 1.000 |
+| S2 | 1.000 | 0.991 | 1.000 | 1.000 |
+| S3 | 1.000 | 1.000 | 1.000 | 1.000 |
+| C1 | 0.750 | 0.769 | 1.000 | 1.000 |
+| C2 | 0.750 | 0.832 | 1.000 | 1.000 |
+| C3 | 1.000 | 0.745 | 1.000 | 1.000 |
+| E1 | n/a | 0.000 | n/a | n/a |
+| E2 | 0.000 | 0.000 | 0.000 | 1.000 |
+| I1 | 1.000 | 0.789 | 1.000 | 1.000 |
+| I2 | 1.000 | 0.538 | 1.000 | 1.000 |
+
+**Tabla comparativa de promedios:**
+
+| Métrica | Básico (10) | Avanzado (10) | Básico (8, sin escape) | Avanzado (8, sin escape) | Delta (8) |
+|---|---|---|---|---|---|
+| Faithfulness | 0.815 | 0.833 | 0.917 | 0.938 | +0.021 |
+| Answer Relevancy | 0.668 | 0.664 | 0.835 | 0.830 | −0.005 |
+| Context Precision | 0.843 | 0.889 | 0.948 | **1.000** | **+0.052** |
+| Context Recall | 0.889 | 1.000 | 1.000 | 1.000 | 0.000 |
+
+(En las columnas de 10 preguntas, Faithfulness, Context Precision y Context Recall promedian 9 valores, porque E1 no tiene contexto.)
+
+**La mejora: Context Precision (+0.052).** Es la métrica que el reranking tenía que mover. En el avanzado, las 8 preguntas con respuesta tienen 1.000; en el básico, todas menos C1, así que toda la diferencia sale de esa pregunta. El básico pasaba 4 fichas con ruido (ver C.2); el avanzado pasa solo 3 chunks (`BCN-FCO#chunk1`, `MAD-FCO#chunk2`, `BCN-FCO#chunk2`), los tres útiles. El juez descarta lo que está "cerca" en el espacio vectorial pero no responde la pregunta. La mejora es consistente con el diseño del reranking, pero descansa en una sola pregunta y, en parte, en un veredicto discutible del evaluador sobre el básico, así que su magnitud hay que leerla con cautela.
+
+**Lo que no es una mejora real.**
+
+- **Context Recall (de 0.889 a 1.000 sobre 10):** toda la diferencia viene de E2, que pasa de 0 a 1.000 con el mismo *ground truth*; lo único que cambia es el contexto recuperado (las fichas completas de Madrid–Roma y Barcelona–Roma en el básico, `RUTA-MAD-FCO#chunk2` en el avanzado). Es el mismo problema de las preguntas de escape descripto en C.2: con un *ground truth* que dice "no hay información", la métrica no tiene qué buscar. Sin las preguntas de escape, los dos pipelines dan 1.000: en este dataset, el básico ya recuperaba toda la evidencia necesaria.
+- **Faithfulness (+0.021):** está dentro de la variabilidad del evaluador. El básico pierde por S1 (0.500, ver C.2) e I1 (0.833), y el avanzado por C1 y C2 (0.750), donde el evaluador no da por respaldada la conclusión comparativa ("por lo tanto, Oslo–Tallin es más barata"), que es una inferencia correcta a partir de dos precios del contexto, pero no está escrita literal. Ninguno de los dos pipelines inventó datos.
+
+**I2: el chunking no perdió información, gracias al reranking.** En C.1 se anticipó que el retriever de chunks (k = 4) no recuperaba `RUTA-BCN-MAD#chunk3`, donde están los horarios y los días de mayor demanda. El avanzado sí lo recupera: al traer 8 candidatos y dejar que el juez elija, entran los tres chunks de la ficha. Chunking y reranking se complementan: el chunking parte la ficha y el reranking vuelve a juntar las partes que la pregunta necesita.
+
+### C.4 — Diagnóstico de la peor métrica y propuesta de mejora
+
+**La peor métrica del avanzado: Answer Relevancy** (0.664 sobre 10 preguntas, 0.830 sin las de escape). Es además la única que empeora respecto del básico, aunque por una diferencia (−0.005) que está dentro del ruido.
+
+**Causa probable.** La teoría de la cátedra define Answer Relevancy como si la respuesta "contesta directamente a la pregunta formulada sin divagar". RAGAS la calcula generando preguntas a partir de la respuesta y comparándolas, por similitud de embeddings, con la pregunta original. Hay dos causas, de peso distinto:
+
+1. **Estructural, no corregible desde el sistema: las preguntas de escape.** E1 y E2 sacan 0 porque RAGAS trata cualquier respuesta evasiva como no relevante, aunque escapar sea lo correcto. Explican la caída de 0.830 a 0.664.
+2. **La que sí hay que corregir: el generador divaga.** Sin las preguntas de escape, los puntajes más bajos son I2 (0.538), C3 (0.745), C1 (0.769) e I1 (0.789). En I2 ("¿qué onda los vuelos?") la respuesta agrega datos que nadie pidió, y en I1 suma la asimetría de vuelos por sentido. El prompt de la Parte A pide responder solo con información del contexto, pero no pide limitarse a lo preguntado, así que el modelo vuelca todo lo que encuentra en los chunks. Las preguntas generadas a partir de esas respuestas largas se alejan de la pregunta original. El registro informal agrava el efecto: "qué onda los vuelos" queda lejos, en el espacio de embeddings, de cualquier pregunta formal que se genere a partir de la respuesta.
+
+**Acción técnica concreta.** Agregar al prompt de generación (`template` en `rag_pipeline.py`) una regla de foco: *"Responde primero, en una oración, exactamente lo que se pregunta. Agrega otros datos del contexto solo si son necesarios para esa respuesta."* Después, volver a correr `evaluacion_ragas.py` y comparar Answer Relevancy sin las preguntas de escape, verificando que Faithfulness no baje (la regla no debe empujar al modelo a inferir datos que no estén en el contexto). Para las preguntas de escape, que Answer Relevancy no puede medir por diseño, conviene evaluarlas con un criterio propio: que la respuesta sea exactamente `FRASE_ESCAPE`. El dataset se reutiliza en las Entregas 4 y 5, así que esa comparación va a poder repetirse sobre el mismo set.
+
+**Limitación de la evaluación.** Con 10 preguntas, una sola respuesta mueve un promedio entre 0.05 y 0.1, y el evaluador (`gpt-4o-mini`) tiene variabilidad propia (ver S1 en C.2). Por eso las diferencias chicas, como la de Faithfulness, no deberían leerse como mejoras, y la de Context Precision tiene el alcance acotado que se explica en C.3.

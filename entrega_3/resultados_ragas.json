@@ -1,0 +1,368 @@
+{
+  "basico": {
+    "filas": [
+      {
+        "id": "S1",
+        "tipo": "simple",
+        "pregunta": "¿Cuánto dura el vuelo entre Guernsey y Jersey?",
+        "respuesta": "El vuelo entre Guernsey y Jersey dura apenas 25 minutos cuando es directo [RUTA-GCI-JER].",
+        "fuentes": [
+          "RUTA-GCI-JER"
+        ],
+        "answer_relevancy": 0.9622775588369267,
+        "faithfulness": 0.5,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      {
+        "id": "S2",
+        "tipo": "simple",
+        "pregunta": "¿Qué aerolínea domina la ruta Londres–Zúrich?",
+        "respuesta": "La aerolínea que domina la ruta Londres–Zúrich es SWISS, con un 48% de los vuelos [RUTA-LHR-ZRH].",
+        "fuentes": [
+          "RUTA-LHR-ZRH",
+          "RUTA-ATH-LHR"
+        ],
+        "answer_relevancy": 0.9927641079833748,
+        "faithfulness": 1.0,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      {
+        "id": "S3",
+        "tipo": "simple",
+        "pregunta": "¿Cuánto dura el vuelo directo entre Barcelona y Madrid?",
+        "respuesta": "La duración del vuelo directo entre Barcelona y Madrid es de apenas 1h20-1h25 [RUTA-BCN-MAD].",
+        "fuentes": [
+          "RUTA-BCN-MAD",
+          "RUTA-MAD-FCO",
+          "RUTA-BCN-FCO"
+        ],
+        "answer_relevancy": 0.9256513872846458,
+        "faithfulness": 1.0,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      {
+        "id": "C1",
+        "tipo": "compleja",
+        "pregunta": "Para ir a Roma, ¿es más barato salir desde Madrid o desde Barcelona?",
+        "respuesta": "Para ir a Roma, es más barato salir desde Barcelona, con una mediana de precio de 62€ [RUTA-BCN-FCO], en comparación con la mediana de 150€ saliendo de Madrid [RUTA-MAD-FCO].",
+        "fuentes": [
+          "RUTA-MAD-FCO",
+          "RUTA-BCN-FCO",
+          "RUTA-BCN-MAD",
+          "RUTA-CIA-CRL"
+        ],
+        "answer_relevancy": 0.8352196601764991,
+        "faithfulness": 1.0,
+        "context_precision": 0.5833333333041666,
+        "context_recall": 1.0
+      },
+      {
+        "id": "C2",
+        "tipo": "compleja",
+        "pregunta": "¿Las rutas Oslo–Tallin y Dublín–Varsovia tienen vuelo directo? ¿Cuál de las dos es más barata?",
+        "respuesta": "La ruta Oslo–Tallin (OSL–TLL) no tiene vuelo directo, ya que el 100% de los itinerarios registrados incluye al menos una escala [RUTA-OSL-TLL]. La ruta Dublín–Varsovia (DUB–WAW) tampoco tiene vuelo directo, ya que todos los itinerarios pasan por algún hub centroeuropeo [RUTA-DUB-WAW]. \n\nEn cuanto a los precios, la mediana de precio para la ruta Oslo–Tallin es de 132€ y 140€ [RUTA-OSL-TLL], mientras que para la ruta Dublín–Varsovia es de 200€ y 215€ [RUTA-DUB-WAW]. Por lo tanto, la ruta Oslo–Tallin es más barata.",
+        "fuentes": [
+          "RUTA-DUB-WAW",
+          "RUTA-OSL-TLL",
+          "RUTA-CPH-OSL",
+          "RUTA-DUB-TIA"
+        ],
+        "answer_relevancy": 0.8480141221441855,
+        "faithfulness": 1.0,
+        "context_precision": 0.99999999995,
+        "context_recall": 1.0
+      },
+      {
+        "id": "C3",
+        "tipo": "compleja",
+        "pregunta": "En la ruta Londres–Lisboa, ¿qué porcentaje de los vuelos es directo, qué aerolíneas la operan y en qué sentido es más cara?",
+        "respuesta": "En la ruta Londres–Lisboa (LHR–LIS), el 69% de los vuelos son directos. Las aerolíneas que operan esta ruta son TAP Air Portugal y British Airways. Volver de Lisboa a Londres es más caro, con una mediana de 218€, en comparación con ir de Londres a Lisboa, que tiene una mediana de 177€ [RUTA-LHR-LIS].",
+        "fuentes": [
+          "RUTA-LHR-LIS",
+          "RUTA-ATH-LHR",
+          "RUTA-DUB-WAW",
+          "RUTA-LHR-ZRH"
+        ],
+        "answer_relevancy": 0.7452817170667779,
+        "faithfulness": 1.0,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      {
+        "id": "E1",
+        "tipo": "escape",
+        "pregunta": "¿Cuánto sale un vuelo de Nueva York a Sídney?",
+        "respuesta": "No poseo información para responder a esta consulta con los datos disponibles.",
+        "fuentes": [],
+        "answer_relevancy": 0.0,
+        "faithfulness": null,
+        "context_precision": null,
+        "context_recall": null
+      },
+      {
+        "id": "E2",
+        "tipo": "escape",
+        "pregunta": "¿Cuánto cuesta despachar una valija extra en la ruta Madrid–Roma?",
+        "respuesta": "No poseo información para responder a esta consulta con los datos disponibles.",
+        "fuentes": [
+          "RUTA-MAD-FCO",
+          "RUTA-BCN-FCO"
+        ],
+        "answer_relevancy": 0.0,
+        "faithfulness": 0.0,
+        "context_precision": 0.0,
+        "context_recall": 0.0
+      },
+      {
+        "id": "I1",
+        "tipo": "informal",
+        "pregunta": "che, ¿cuál es el vuelo más barato que tienen para ir de Milán a París?",
+        "respuesta": "La ruta más barata para ir de Milán a París es la Bérgamo–París Beauvais (BGY–BVA), con una mediana de precio de apenas 29€ y un mínimo de 16€. Esta ruta es 100% operada por Ryanair y es 100% directa, con una duración de 1h35 [RUTA-BGY-BVA].",
+        "fuentes": [
+          "RUTA-BGY-BVA",
+          "RUTA-BCN-FCO",
+          "RUTA-CDG-MRS",
+          "RUTA-CIA-CRL"
+        ],
+        "answer_relevancy": 0.7889540494050817,
+        "faithfulness": 0.8333333333333334,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      {
+        "id": "I2",
+        "tipo": "informal",
+        "pregunta": "tengo una reunión en Madrid y vuelvo en el día, salgo de Barcelona, ¿qué onda los vuelos?",
+        "respuesta": "La ruta Barcelona–Madrid (BCN–MAD) tiene un alto volumen de vuelos, con 3.470 vuelos registrados en ambos sentidos. La mayoría de los vuelos son directos (81%) y la duración es de aproximadamente 1h20-1h25. Iberia domina esta ruta con el 71% de los vuelos, seguida de Air Europa. La mediana de precios al salir de Barcelona es de 117€. Predominan las salidas por la mañana y hay una fuerte demanda entre semana, especialmente los martes y miércoles, lo que es consistente con viajes de trabajo de ida y vuelta en el día [RUTA-BCN-MAD].",
+        "fuentes": [
+          "RUTA-BCN-MAD",
+          "RUTA-MAD-FCO",
+          "RUTA-BCN-FCO"
+        ],
+        "answer_relevancy": 0.5795081254975712,
+        "faithfulness": 1.0,
+        "context_precision": 0.99999999995,
+        "context_recall": 1.0
+      }
+    ],
+    "resumen": {
+      "todas": {
+        "faithfulness": {
+          "promedio": 0.8148148148148148,
+          "n": 9
+        },
+        "answer_relevancy": {
+          "promedio": 0.6677670728395062,
+          "n": 10
+        },
+        "context_precision": {
+          "promedio": 0.8425925925226851,
+          "n": 9
+        },
+        "context_recall": {
+          "promedio": 0.8888888888888888,
+          "n": 9
+        }
+      },
+      "sin_escape": {
+        "faithfulness": {
+          "promedio": 0.9166666666666666,
+          "n": 8
+        },
+        "answer_relevancy": {
+          "promedio": 0.8347088410493828,
+          "n": 8
+        },
+        "context_precision": {
+          "promedio": 0.9479166665880208,
+          "n": 8
+        },
+        "context_recall": {
+          "promedio": 1.0,
+          "n": 8
+        }
+      }
+    }
+  },
+  "avanzado": {
+    "filas": [
+      {
+        "id": "S1",
+        "tipo": "simple",
+        "pregunta": "¿Cuánto dura el vuelo entre Guernsey y Jersey?",
+        "respuesta": "La duración del vuelo entre Guernsey y Jersey es de apenas 25 minutos cuando es directo, lo que ocurre en el 60% de los casos [RUTA-GCI-JER].",
+        "fuentes": [
+          "RUTA-GCI-JER#chunk1"
+        ],
+        "answer_relevancy": 0.9774740105696614,
+        "faithfulness": 1.0,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      {
+        "id": "S2",
+        "tipo": "simple",
+        "pregunta": "¿Qué aerolínea domina la ruta Londres–Zúrich?",
+        "respuesta": "La aerolínea que domina la ruta Londres–Zúrich es SWISS, con un 48% de los vuelos [RUTA-LHR-ZRH].",
+        "fuentes": [
+          "RUTA-LHR-ZRH#chunk1"
+        ],
+        "answer_relevancy": 0.9907309818789783,
+        "faithfulness": 1.0,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      {
+        "id": "S3",
+        "tipo": "simple",
+        "pregunta": "¿Cuánto dura el vuelo directo entre Barcelona y Madrid?",
+        "respuesta": "El vuelo directo entre Barcelona y Madrid dura apenas 1h20-1h25 [RUTA-BCN-MAD].",
+        "fuentes": [
+          "RUTA-BCN-MAD#chunk1",
+          "RUTA-BCN-MAD#chunk2"
+        ],
+        "answer_relevancy": 1.0000000000000002,
+        "faithfulness": 1.0,
+        "context_precision": 0.99999999995,
+        "context_recall": 1.0
+      },
+      {
+        "id": "C1",
+        "tipo": "compleja",
+        "pregunta": "Para ir a Roma, ¿es más barato salir desde Madrid o desde Barcelona?",
+        "respuesta": "Es más barato salir desde Barcelona, con una mediana de apenas 62€, en comparación con los 150€ de la ruta desde Madrid. [RUTA-BCN-FCO] [RUTA-MAD-FCO]",
+        "fuentes": [
+          "RUTA-BCN-FCO#chunk1",
+          "RUTA-MAD-FCO#chunk2",
+          "RUTA-BCN-FCO#chunk2"
+        ],
+        "answer_relevancy": 0.7692490530986079,
+        "faithfulness": 0.75,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      {
+        "id": "C2",
+        "tipo": "compleja",
+        "pregunta": "¿Las rutas Oslo–Tallin y Dublín–Varsovia tienen vuelo directo? ¿Cuál de las dos es más barata?",
+        "respuesta": "Ninguna de las dos rutas, Oslo–Tallin (OSL–TLL) y Dublín–Varsovia (DUB–WAW), tiene vuelo directo. En cuanto a precios, la ruta Dublín–Varsovia tiene una mediana de precio de 200€ y volviendo 215€, mientras que la ruta Oslo–Tallin tiene una mediana de precio de 132€ y volviendo 140€. Por lo tanto, la ruta Oslo–Tallin es más barata. [RUTA-DUB-WAW] [RUTA-OSL-TLL]",
+        "fuentes": [
+          "RUTA-DUB-WAW#chunk1",
+          "RUTA-OSL-TLL#chunk1"
+        ],
+        "answer_relevancy": 0.8316052610187518,
+        "faithfulness": 0.75,
+        "context_precision": 0.99999999995,
+        "context_recall": 1.0
+      },
+      {
+        "id": "C3",
+        "tipo": "compleja",
+        "pregunta": "En la ruta Londres–Lisboa, ¿qué porcentaje de los vuelos es directo, qué aerolíneas la operan y en qué sentido es más cara?",
+        "respuesta": "En la ruta Londres–Lisboa, el 69% de los vuelos son directos. Las aerolíneas que operan esta ruta son TAP Air Portugal y British Airways. Volver de Lisboa a Londres es más caro, con una mediana de 218€, un 23% más cara que ir de Londres a Lisboa, que tiene una mediana de 177€ [RUTA-LHR-LIS].",
+        "fuentes": [
+          "RUTA-LHR-LIS#chunk1",
+          "RUTA-LHR-LIS#chunk2"
+        ],
+        "answer_relevancy": 0.7452817170667779,
+        "faithfulness": 1.0,
+        "context_precision": 0.9999999999,
+        "context_recall": 1.0
+      },
+      {
+        "id": "E1",
+        "tipo": "escape",
+        "pregunta": "¿Cuánto sale un vuelo de Nueva York a Sídney?",
+        "respuesta": "No poseo información para responder a esta consulta con los datos disponibles.",
+        "fuentes": [],
+        "answer_relevancy": 0.0,
+        "faithfulness": null,
+        "context_precision": null,
+        "context_recall": null
+      },
+      {
+        "id": "E2",
+        "tipo": "escape",
+        "pregunta": "¿Cuánto cuesta despachar una valija extra en la ruta Madrid–Roma?",
+        "respuesta": "No poseo información para responder a esta consulta con los datos disponibles.",
+        "fuentes": [
+          "RUTA-MAD-FCO#chunk2"
+        ],
+        "answer_relevancy": 0.0,
+        "faithfulness": 0.0,
+        "context_precision": 0.0,
+        "context_recall": 1.0
+      },
+      {
+        "id": "I1",
+        "tipo": "informal",
+        "pregunta": "che, ¿cuál es el vuelo más barato que tienen para ir de Milán a París?",
+        "respuesta": "La ruta más barata para ir de Milán a París es la Bérgamo–París Beauvais (BGY–BVA), con una mediana de apenas 29€ y un mínimo de 16€. Esta ruta es 100% operada por Ryanair y es 100% directa, con una duración de 1h35. Sin embargo, ten en cuenta que la mayoría de los vuelos están pensados como un viaje de ida hacia París, con 35 vuelos saliendo de Bérgamo hacia Beauvais y solo 2 en sentido inverso [RUTA-BGY-BVA].",
+        "fuentes": [
+          "RUTA-BGY-BVA#chunk1",
+          "RUTA-BGY-BVA#chunk2"
+        ],
+        "answer_relevancy": 0.7889540494050817,
+        "faithfulness": 1.0,
+        "context_precision": 0.99999999995,
+        "context_recall": 1.0
+      },
+      {
+        "id": "I2",
+        "tipo": "informal",
+        "pregunta": "tengo una reunión en Madrid y vuelvo en el día, salgo de Barcelona, ¿qué onda los vuelos?",
+        "respuesta": "La ruta Barcelona–Madrid (BCN–MAD) es mayormente directa (81%) y muy corta, con un tiempo de vuelo de apenas 1h20-1h25. Predominan las salidas por la mañana y hay fuerte demanda entre semana, especialmente los martes y miércoles, lo que es consistente con viajes de trabajo de ida y vuelta en el día. La aerolínea que domina esta ruta es Iberia, seguida de Air Europa. [RUTA-BCN-MAD]",
+        "fuentes": [
+          "RUTA-BCN-MAD#chunk2",
+          "RUTA-BCN-MAD#chunk1",
+          "RUTA-BCN-MAD#chunk3"
+        ],
+        "answer_relevancy": 0.5377918513060631,
+        "faithfulness": 1.0,
+        "context_precision": 0.9999999999666667,
+        "context_recall": 1.0
+      }
+    ],
+    "resumen": {
+      "todas": {
+        "faithfulness": {
+          "promedio": 0.8333333333333334,
+          "n": 9
+        },
+        "answer_relevancy": {
+          "promedio": 0.6641086924343923,
+          "n": 10
+        },
+        "context_precision": {
+          "promedio": 0.888888888824074,
+          "n": 9
+        },
+        "context_recall": {
+          "promedio": 1.0,
+          "n": 9
+        }
+      },
+      "sin_escape": {
+        "faithfulness": {
+          "promedio": 0.9375,
+          "n": 8
+        },
+        "answer_relevancy": {
+          "promedio": 0.8301358655429903,
+          "n": 8
+        },
+        "context_precision": {
+          "promedio": 0.9999999999270833,
+          "n": 8
+        },
+        "context_recall": {
+          "promedio": 1.0,
+          "n": 8
+        }
+      }
+    }
+  }
+}

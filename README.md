@@ -42,3 +42,9 @@ Usa la misma base de la Entrega 2, así que primero hay que haberla construido (
 **`python entrega_3/rag_pipeline.py`** (Parte A) — pipeline RAG con LangChain LCEL (retriever → prompt con guardrails → `gpt-4o-mini` → parser) sobre la colección ChromaDB de la Entrega 2. Corre la matriz de resiliencia de 4 pruebas (factual, fuera de dominio, ataque de complacencia y sinónimos) y muestra, para cada respuesta, los documentos fuente con su fragmento y sus metadatos. Usa la misma `OPENAI_API_KEY` del `.env`. Resultados y análisis en [`entrega_3/informe.md`](entrega_3/informe.md).
 
 **`python entrega_3/rag_pipeline.py --parte b2`** (Parte B.2) — corta las fichas en chunks de 500 caracteres con 100 de solapamiento, los indexa en una colección nueva (`vuelos_smart_flight_assistant_chunks`, sin tocar la de la Entrega 2) y compara la recuperación contra la versión básica sobre las consultas de detalle de B.1.
+
+**`python entrega_3/rag_pipeline.py --parte b3`** (Parte B.3) — reranking con LLM como juez: trae 8 candidatos de la colección de chunks, los puntúa con `gpt-4o-mini` y pasa los 3 mejores a la generación. Requiere haber corrido antes `--parte b2` (colección de chunks).
+
+**`python entrega_3/rag_pipeline.py --parte b4`** (Parte B.4) — corre el chain avanzado con trazabilidad en LangSmith. Requiere `LANGSMITH_TRACING`, `LANGSMITH_API_KEY` y `LANGSMITH_PROJECT` en el `.env` (ver `.env.example`) y haber corrido antes `--parte b2` (colección de chunks).
+
+**`python entrega_3/evaluacion_ragas.py`** (Parte C) — evalúa el RAG básico y el avanzado con RAGAS (Faithfulness, Answer Relevancy, Context Precision y Context Recall) sobre el golden dataset de [`entrega_3/golden_dataset.json`](entrega_3/golden_dataset.json), y guarda los resultados en `entrega_3/resultados_ragas.json`. Requiere haber corrido antes `--parte b2` (colección de chunks). Con `--pipeline basico` o `--pipeline avanzado` evalúa uno solo.

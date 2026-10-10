@@ -1,0 +1,90 @@
+[
+    {
+        "id": "S1",
+        "tipo": "simple",
+        "pregunta": "¿Cuánto dura el vuelo entre Guernsey y Jersey?",
+        "ground_truth": "El vuelo entre Guernsey y Jersey dura apenas 25 minutos cuando es directo, lo que ocurre en el 60% de los casos.",
+        "rutas_esperadas": [
+            "RUTA-GCI-JER"
+        ]
+    },
+    {
+        "id": "S2",
+        "tipo": "simple",
+        "pregunta": "¿Qué aerolínea domina la ruta Londres–Zúrich?",
+        "ground_truth": "La ruta Londres–Zúrich la domina SWISS, la aerolínea de bandera suiza, con el 48% de los vuelos, seguida de British Airways.",
+        "rutas_esperadas": [
+            "RUTA-LHR-ZRH"
+        ]
+    },
+    {
+        "id": "S3",
+        "tipo": "simple",
+        "pregunta": "¿Cuánto dura el vuelo directo entre Barcelona y Madrid?",
+        "ground_truth": "El vuelo entre Barcelona y Madrid dura apenas entre 1h20 y 1h25.",
+        "rutas_esperadas": [
+            "RUTA-BCN-MAD"
+        ]
+    },
+    {
+        "id": "C1",
+        "tipo": "compleja",
+        "pregunta": "Para ir a Roma, ¿es más barato salir desde Madrid o desde Barcelona?",
+        "ground_truth": "Es más barato salir desde Barcelona: la ruta Barcelona–Roma tiene una mediana de 60€ yendo, mientras que la ruta Madrid–Roma tiene una mediana de 150€ saliendo de Madrid.",
+        "rutas_esperadas": [
+            "RUTA-BCN-FCO",
+            "RUTA-MAD-FCO"
+        ]
+    },
+    {
+        "id": "C2",
+        "tipo": "compleja",
+        "pregunta": "¿Las rutas Oslo–Tallin y Dublín–Varsovia tienen vuelo directo? ¿Cuál de las dos es más barata?",
+        "ground_truth": "Ninguna de las dos tiene vuelo directo: en ambas todos los itinerarios tienen al menos una escala. Oslo–Tallin es más barata, con una mediana de 132€ yendo y 140€ volviendo, frente a Dublín–Varsovia, con 200€ yendo y 215€ volviendo.",
+        "rutas_esperadas": [
+            "RUTA-OSL-TLL",
+            "RUTA-DUB-WAW"
+        ]
+    },
+    {
+        "id": "C3",
+        "tipo": "compleja",
+        "pregunta": "En la ruta Londres–Lisboa, ¿qué porcentaje de los vuelos es directo, qué aerolíneas la operan y en qué sentido es más cara?",
+        "ground_truth": "El 69% de los vuelos entre Londres y Lisboa es directo. La cubren casi por partes iguales TAP Air Portugal y British Airways. Es más cara volviendo de Lisboa a Londres, con una mediana de 218€, un 23% más que yendo de Londres a Lisboa, con 177€.",
+        "rutas_esperadas": [
+            "RUTA-LHR-LIS"
+        ]
+    },
+    {
+        "id": "E1",
+        "tipo": "escape",
+        "pregunta": "¿Cuánto sale un vuelo de Nueva York a Sídney?",
+        "ground_truth": "No poseo información para responder a esta consulta con los datos disponibles.",
+        "rutas_esperadas": []
+    },
+    {
+        "id": "E2",
+        "tipo": "escape",
+        "pregunta": "¿Cuánto cuesta despachar una valija extra en la ruta Madrid–Roma?",
+        "ground_truth": "No poseo información para responder a esta consulta con los datos disponibles.",
+        "rutas_esperadas": []
+    },
+    {
+        "id": "I1",
+        "tipo": "informal",
+        "pregunta": "che, ¿cuál es el vuelo más barato que tienen para ir de Milán a París?",
+        "ground_truth": "El más barato es Bérgamo–París Beauvais, la ruta más barata de todo el catálogo, con una mediana de 29€ y un mínimo de 16€. Es 100% operada por Ryanair y 100% directa, entre aeropuertos secundarios lejos de los centros de Milán y París.",
+        "rutas_esperadas": [
+            "RUTA-BGY-BVA"
+        ]
+    },
+    {
+        "id": "I2",
+        "tipo": "informal",
+        "pregunta": "tengo una reunión en Madrid y vuelvo en el día, salgo de Barcelona, ¿qué onda los vuelos?",
+        "ground_truth": "Es el puente aéreo Barcelona–Madrid: mayormente directo (81%), con apenas 1h20-1h25 de vuelo, dominado por Iberia (71% de los vuelos) seguida de Air Europa. Predominan las salidas por la mañana y hay fuerte demanda entre semana, consistente con viajes de trabajo de ida y vuelta en el día.",
+        "rutas_esperadas": [
+            "RUTA-BCN-MAD"
+        ]
+    }
+]
