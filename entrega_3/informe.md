@@ -8,7 +8,7 @@ Código completo: [`rag_pipeline.py`](rag_pipeline.py). Se corre desde la raíz 
 
 ### A.1 — Conexión a la base de datos
 
-El retriever apunta exactamente a la base ChromaDB de la Entrega 2: la colección `vuelos_smart_flight_assistant` persistida en `chroma_db/`, la misma que dejó purgada `etl_purga.py` (21 documentos). No se duplica la configuración: `rag_pipeline.py` importa `NOMBRE_COLECCION` y `RUTA_CHROMA` de `vector_db.py`, y para eso las rutas de `vector_db.py` quedaron ancladas a la carpeta del propio archivo, así la base se encuentra igual aunque el script se ejecute desde `entrega_3/`. Al arrancar, el pipeline imprime la colección y la ruta que está usando.
+El retriever apunta exactamente a la base ChromaDB de la Entrega 2: la colección `vuelos_smart_flight_assistant` persistida en `chroma_db/`, la misma que dejó purgada `etl_purga.py` (21 documentos). No se duplica la configuración: `rag_pipeline.py` importa `NOMBRE_COLECCION` y `RUTA_CHROMA` de `vector_db.py`, y para eso las rutas de `vector_db.py` quedaron ancladas a la carpeta del propio archivo, así la base se encuentra igual aunque el script se ejecute desde `entrega_3/`. Al arrancar, el pipeline verifica que esa colección exista y tenga documentos (`verificar_base_entrega2()`): si la base no se construyó, falla con un error que indica qué scripts correr, en lugar de crear una colección vacía y responder la frase de escape a todo. Después imprime la colección y la ruta que está usando.
 
 `VuelosRetriever` hereda de `BaseRetriever` de LangChain y por dentro reutiliza `buscar_vuelos()` de la Entrega 2. Eso tiene dos ventajas: el retriever es un componente nativo de LangChain (un `Runnable`, que entra directo en el chain LCEL), y hereda sin reescribirlo el umbral de aceptación de la Entrega 2 (C.2, distancia coseno ≤ 0.50): lo que no supera el umbral nunca llega al LLM. Cada documento recuperado conserva su `id` y su distancia en los metadatos, para poder citarlo y trazarlo.
 
@@ -198,12 +198,17 @@ rag_chain_avanzado = (
 | ¿Qué rutas opera Aurigny Air Services? | puesto 1, 0.509 (cortada) | puesto 1, 0.506 (cortada) | **puesto 1, juez 10/10** | Correcta: GCI–JER |
 | ¿En qué ruta solo se ofrece clase económica? | puesto 3, 0.565 (cortada) | puesto 1, 0.153 | puesto 1, juez 10/10 | Correcta: MAD–FCO |
 | ¿Qué ruta tiene más demanda los jueves y domingos? | fuera del top-4 | fuera del top-4 | **puesto 1, juez 9/10** | Correcta: CIA–CRL |
-| ¿En qué ruta la vuelta es más cara que la ida? | fuera del top-4 | puesto 1, 0.449 | puesto 1, juez 10/10 | Correcta: LHR–LIS |
+| ¿En qué ruta la vuelta es más cara que la ida? | fuera del top-4 | puesto 1, 0.449 | puesto 1, juez 10/10 | Correcta: LHR–LIS (ver nota) |
 | ¿Qué vuelos opera Azerbaijan Airlines? | puesto 1, 0.467 | puesto 1, 0.386 | puesto 1, juez 9/10 | Correcta: MSQ–RIX |
-| ¿Qué ruta pasa por Ámsterdam o París aunque sea doméstica? | puesto 2, 0.404 | puesto 2, 0.435 | puesto 1, juez 9/10 | Correcta |
+| ¿Qué ruta pasa por Ámsterdam o París aunque sea doméstica? | puesto 2, 0.404 | puesto 2, 0.435 | puesto 1, juez 9/10 | Correcta: BRE–FRA (ver nota) |
 | ¿Qué rutas opera Air Algérie? | puesto 1, 0.533 (cortada) | puesto 1, 0.502 (cortada) | puesto 1, juez 6/10 | **"No poseo información..."** |
 
 De las 6 consultas que fallaban en B.1, el reranking resuelve **5** (el chunking solo había resuelto 2): las tres que seguían fuera del top-4 o cortadas por el umbral (salidas nocturnas, Aurigny, jueves y domingos) pasan a tener el chunk correcto en el puesto 1 con 9–10/10. En conjunto, la ruta correcta queda en el contexto final en las 8 consultas y 7 se responden bien.
+
+**Nota: respuestas que varían entre corridas.** El juez y el generador son LLM, así que al volver a correr `--parte b3` la respuesta final cambió en dos consultas, aunque en las dos el chunk correcto siguió en el puesto 1 del contexto:
+
+- *"¿En qué ruta la vuelta es más cara que la ida?"* admite más de una respuesta correcta: varias fichas del catálogo dicen que la vuelta es más cara (Londres–Lisboa, Bremen–Fráncfort, París–Marsella, entre otras). Con `RUTA-LHR-LIS#chunk2` primero, el generador respondió con Bremen–Fráncfort, que también es correcta según su ficha (la vuelta es un 20% más cara).
+- *"¿Qué ruta pasa por Ámsterdam o París aunque sea doméstica?"* respondió París–Marsella en lugar de Bremen–Fráncfort. Esa respuesta es floja: París es el origen de esa ruta, no una escala. Con `RUTA-BRE-FRA#chunk2` primero (juez 9/10), es un error de la generación y no de la recuperación, el mismo tipo de falla que Air Algérie.
 
 **Lo que no resolvió.** Air Algérie: el chunk correcto (`RUTA-CDG-MRS#chunk1`) sí llega al contexto, con 6/10 (justo el mínimo), pero el generador igual contesta la frase de escape aunque el texto dice que la ruta la cubren "aerolíneas europeas menores como Brussels Airlines y Air Algérie". Es un falso negativo de la **generación**, no de la recuperación: la regla del prompt de la Parte A ("usar la frase de escape solo si el contexto no contiene ninguna información") no alcanza para que `gpt-4o-mini` acepte una mención lateral como respuesta. Se deja asentado y no se modificó el prompt de la Parte A para no alterar los resultados ya validados de A.3.
 
@@ -288,7 +293,7 @@ El dataset está en [`golden_dataset.json`](golden_dataset.json), separado del c
 
 ### C.2 — Baseline RAGAS (RAG básico)
 
-Código: [`evaluacion_ragas.py`](evaluacion_ragas.py). Se corre con `python entrega_3/evaluacion_ragas.py` (o `--pipeline basico` para correr solo el baseline). Resultados completos, con la respuesta y las fuentes de cada pregunta, en [`resultados_ragas.json`](resultados_ragas.json).
+Código: [`evaluacion_ragas.py`](evaluacion_ragas.py). Se corre con `python entrega_3/evaluacion_ragas.py` (o `--pipeline basico` para correr solo el baseline). Resultados completos, con la respuesta y las fuentes de cada pregunta, en [`resultados_ragas.json`](resultados_ragas.json). Cada corrida reemplaza ese archivo, y como el evaluador es un LLM los puntajes varían entre corridas: las tablas de esta parte corresponden a la corrida guardada en el archivo.
 
 **Cómo se evalúa.** Cada pregunta del golden dataset se pasa por el chain de la Parte A (`rag_chain`: fichas completas, k = 4, umbral 0.50), y la respuesta, los documentos recuperados y el *ground truth* se evalúan con las cuatro métricas de RAGAS 0.4.3 (`ragas.metrics.collections`), usando `gpt-4o-mini` como evaluador y `text-embedding-3-small` para Answer Relevancy. Siguiendo la teoría de la cátedra, dos métricas evalúan la **generación** (Faithfulness: ¿la respuesta está respaldada por el contexto?; Answer Relevancy: ¿responde la pregunta sin divagar?) y dos la **recuperación** (Context Precision: ¿los primeros chunks son útiles?; Context Recall: ¿el contexto tiene toda la evidencia necesaria?). Las versiones quedan fijadas en `requirements.txt`: RAGAS 0.4.3 necesita `langchain-community==0.4.1` (la 0.4.2 ya no trae un módulo que RAGAS importa) y `openai==1.109.1` (las versiones 2.x y 3.x son incompatibles con `instructor`, una dependencia de RAGAS).
 

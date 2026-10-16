@@ -37,6 +37,7 @@ from vector_db import (  # noqa: E402
     RUTA_CHROMA,
     UMBRAL_DISTANCIA,
     buscar_vuelos,
+    cliente_chroma,
     filtrar_por_umbral,
     funcion_embedding,
     obtener_coleccion,
@@ -51,6 +52,44 @@ FRASE_ESCAPE = (
 )
 
 
+# A.1 — la base de la Entrega 2 tiene que existir y tener documentos. get_collection falla si la colección no
+# existe, en lugar de crear una vacía (las pautas piden conectarse "sin crear una base nueva"): sin este control,
+# un retriever sobre una base vacía responde la frase de escape a todo, sin ningún error que lo avise
+def verificar_base_entrega2():
+    try:
+        cantidad = cliente_chroma.get_collection(NOMBRE_COLECCION, embedding_function=funcion_embedding).count()
+    except chromadb.errors.NotFoundError:
+        cantidad = 0
+    if cantidad == 0:
+        raise RuntimeError(
+            f"La colección '{NOMBRE_COLECCION}' no existe o está vacía en '{RUTA_CHROMA}'. "
+            "Construir primero la base de la Entrega 2: python vector_db.py y python etl_purga.py"
+        )
+
+
+verificar_base_entrega2()
+
+
+# convierte el resultado de una query de ChromaDB (ya filtrado por el umbral) en Documents de LangChain, con el id
+# y la distancia en los metadatos para poder citarlos y trazarlos. En la colección de chunks, "id" es la ficha de
+# origen (para que el prompt cite la ruta igual que en la Parte A) e "id_chunk" el fragmento
+def resultado_a_documentos(resultado: dict, es_chunk: bool = False):
+    documentos = []
+    for id_resultado, texto, meta, distancia in zip(
+        resultado["ids"][0],
+        resultado["documents"][0],
+        resultado["metadatas"][0],
+        resultado["distances"][0],
+    ):
+        metadatos = {**meta, "distancia": distancia}
+        if es_chunk:
+            metadatos.update(id=meta["id_documento"], id_chunk=id_resultado)
+        else:
+            metadatos["id"] = id_resultado
+        documentos.append(Document(page_content=texto, metadata=metadatos))
+    return documentos
+
+
 # A.1 — RETRIEVER
 # Apunta a la misma colección y ruta de persistencia de la Entrega 2 (NOMBRE_COLECCION y RUTA_CHROMA
 # de vector_db.py) y reutiliza buscar_vuelos(), que ya descarta lo que no supera el umbral de C.2.
@@ -59,19 +98,7 @@ class VuelosRetriever(BaseRetriever):
     k: int = K_DOCUMENTOS
 
     def _get_relevant_documents(self, query: str, *, run_manager: CallbackManagerForRetrieverRun):
-        resultado = buscar_vuelos(query_semantica=query, n_resultados=self.k)
-        return [
-            Document(
-                page_content=texto,
-                metadata={**meta, "id": doc_id, "distancia": distancia},
-            )
-            for doc_id, texto, meta, distancia in zip(
-                resultado["ids"][0],
-                resultado["documents"][0],
-                resultado["metadatas"][0],
-                resultado["distances"][0],
-            )
-        ]
+        return resultado_a_documentos(buscar_vuelos(query_semantica=query, n_resultados=self.k))
 
 
 retriever = VuelosRetriever(k=K_DOCUMENTOS)
@@ -202,23 +229,22 @@ def mostrar_fuentes(documentos):
 
     if not documentos:
         print("  * Ningún documento superó el umbral.")
-        return
+    else:
+        print(f"  * Documentos utilizados: {len(documentos)}")
 
-    print(f"  * Documentos utilizados: {len(documentos)}")
-
-    for idx, doc in enumerate(documentos, 1):
-        meta = doc.metadata
-        print(f"\n  * Fuente {idx}: {meta['id']} (distancia coseno {meta['distancia']:.4f})")
-        print(f'    - Fragmento: "{doc.page_content[:150]}..."')
-        print(
-            f"    - Ruta: {meta.get('origen')} – {meta.get('destino')} "
-            f"({meta.get('pais_origen')} – {meta.get('pais_destino')})"
-        )
-        print(
-            f"    - Categoría de precio: {meta.get('categoria_precio')} | "
-            f"Vuelo directo disponible: {meta.get('vuelo_directo_disponible')} | "
-            f"Aerolínea dominante: {meta.get('tipo_aerolinea_dominante')}"
-        )
+        for idx, doc in enumerate(documentos, 1):
+            meta = doc.metadata
+            print(f"\n  * Fuente {idx}: {meta['id']} (distancia coseno {meta['distancia']:.4f})")
+            print(f'    - Fragmento: "{doc.page_content[:150]}..."')
+            print(
+                f"    - Ruta: {meta.get('origen')} – {meta.get('destino')} "
+                f"({meta.get('pais_origen')} – {meta.get('pais_destino')})"
+            )
+            print(
+                f"    - Categoría de precio: {meta.get('categoria_precio')} | "
+                f"Vuelo directo disponible: {meta.get('vuelo_directo_disponible')} | "
+                f"Aerolínea dominante: {meta.get('tipo_aerolinea_dominante')}"
+            )
 
 
 # ============================================================================
@@ -256,13 +282,17 @@ splitter = RecursiveCharacterTextSplitter(
 )
 
 
+# get_collection y no get_or_create_collection: si B.2 no se corrió, falla con un error claro en lugar de
+# crear una colección de chunks vacía (la colección solo se crea en reindexar_con_chunks)
 def obtener_coleccion_chunks():
-    cliente = chromadb.PersistentClient(path=RUTA_CHROMA)
-    return cliente.get_or_create_collection(
-        name=NOMBRE_COLECCION_CHUNKS,
-        embedding_function=funcion_embedding,
-        metadata={"hnsw:space": "cosine"},
-    )
+    try:
+        coleccion = cliente_chroma.get_collection(NOMBRE_COLECCION_CHUNKS, embedding_function=funcion_embedding)
+    except chromadb.errors.NotFoundError as error:
+        raise RuntimeError(
+            f"La colección '{NOMBRE_COLECCION_CHUNKS}' no existe: correr primero "
+            "python entrega_3/rag_pipeline.py --parte b2"
+        ) from error
+    return coleccion
 
 
 def reindexar_con_chunks():
@@ -282,10 +312,13 @@ def reindexar_con_chunks():
 
     # la colección de chunks se deriva entera de la base: se recrea desde cero para que no queden
     # chunks viejos si cambian el tamaño o el solapamiento
-    cliente = chromadb.PersistentClient(path=RUTA_CHROMA)
-    if NOMBRE_COLECCION_CHUNKS in [c.name for c in cliente.list_collections()]:
-        cliente.delete_collection(NOMBRE_COLECCION_CHUNKS)
-    coleccion = obtener_coleccion_chunks()
+    if NOMBRE_COLECCION_CHUNKS in [c.name for c in cliente_chroma.list_collections()]:
+        cliente_chroma.delete_collection(NOMBRE_COLECCION_CHUNKS)
+    coleccion = cliente_chroma.create_collection(
+        name=NOMBRE_COLECCION_CHUNKS,
+        embedding_function=funcion_embedding,
+        metadata={"hnsw:space": "cosine"},
+    )
     coleccion.upsert(ids=ids, documents=textos, metadatas=metadatos)
 
     return base, ids, textos
@@ -301,19 +334,7 @@ class ChunksRetriever(BaseRetriever):
             obtener_coleccion_chunks().query(query_texts=[query], n_results=self.k),
             self.umbral,
         )
-        return [
-            # "id" es la ficha de origen, para que el prompt cite la ruta igual que en la Parte A
-            Document(
-                page_content=texto,
-                metadata={**meta, "id": meta["id_documento"], "id_chunk": chunk_id, "distancia": distancia},
-            )
-            for chunk_id, texto, meta, distancia in zip(
-                resultado["ids"][0],
-                resultado["documents"][0],
-                resultado["metadatas"][0],
-                resultado["distances"][0],
-            )
-        ]
+        return resultado_a_documentos(resultado, es_chunk=True)
 
 
 retriever_chunks = ChunksRetriever(k=K_DOCUMENTOS)
@@ -323,20 +344,24 @@ rag_chain_chunks = construir_chain(retriever_chunks)
 def mejor_posicion(query: str, ruta_esperada: str, coleccion, campo_id: str):
     """Puesto y distancia del primer resultado (ficha o chunk) que pertenece a la ruta esperada."""
     r = coleccion.query(query_texts=[query], n_results=K_DOCUMENTOS)
+    posicion = (None, None)
     for puesto, (meta, chunk_id, distancia) in enumerate(
         zip(r["metadatas"][0], r["ids"][0], r["distances"][0]), 1
     ):
         doc_id = meta.get(campo_id, chunk_id) if campo_id else chunk_id
         if doc_id == ruta_esperada:
-            return puesto, distancia
-    return None, None
+            posicion = (puesto, distancia)
+            break
+    return posicion
 
 
 def describir(puesto, distancia):
     if puesto is None:
-        return f"no está en el top-{K_DOCUMENTOS}"
-    estado = "pasa el umbral" if distancia <= UMBRAL_DISTANCIA else "cortada por el umbral"
-    return f"puesto {puesto}, {distancia:.3f} ({estado})"
+        descripcion = f"no está en el top-{K_DOCUMENTOS}"
+    else:
+        estado = "pasa el umbral" if distancia <= UMBRAL_DISTANCIA else "cortada por el umbral"
+        descripcion = f"puesto {puesto}, {distancia:.3f} ({estado})"
+    return descripcion
 
 
 def ejecutar_parte_b2():
@@ -432,19 +457,20 @@ retriever_candidatos = ChunksRetriever(k=K_CANDIDATOS, umbral=UMBRAL_CANDIDATOS)
 # paso 1 del reranking: una sola llamada al juez puntúa los 8 candidatos
 def puntuar_con_juez(entrada: dict):
     candidatos = entrada["candidatos"]
-    if not candidatos:
-        return []
-    fragmentos = "\n\n".join(f"[{d.metadata['id_chunk']}] {d.page_content}" for d in candidatos)
-    evaluacion = juez.invoke({"question": entrada["question"], "fragmentos": fragmentos})
-    puntajes = {p.id_chunk: max(0, min(10, p.puntaje)) for p in evaluacion.puntajes}
-    return [
-        Document(
-            page_content=d.page_content,
-            # un candidato que el juez omitió cuenta como 0
-            metadata={**d.metadata, "puntaje_juez": puntajes.get(d.metadata["id_chunk"], 0)},
-        )
-        for d in candidatos
-    ]
+    puntuados = []
+    if candidatos:
+        fragmentos = "\n\n".join(f"[{d.metadata['id_chunk']}] {d.page_content}" for d in candidatos)
+        evaluacion = juez.invoke({"question": entrada["question"], "fragmentos": fragmentos})
+        puntajes = {p.id_chunk: max(0, min(10, p.puntaje)) for p in evaluacion.puntajes}
+        puntuados = [
+            Document(
+                page_content=d.page_content,
+                # un candidato que el juez omitió cuenta como 0
+                metadata={**d.metadata, "puntaje_juez": puntajes.get(d.metadata["id_chunk"], 0)},
+            )
+            for d in candidatos
+        ]
+    return puntuados
 
 
 # paso 2: el código aplica el corte y el orden; si nada llega al puntaje mínimo, el contexto queda vacío
@@ -543,8 +569,8 @@ def ejecutar_parte_b4(pregunta: str):
     run = coleccion_runs.traced_runs[0]
     print(f"\nID de la ejecución: {run.id}")
     try:
-        from langsmith import Client
-        print(f"Traza: {Client().get_run_url(run=run, project_name=proyecto)}")
+        # run.get_url() reemplaza a Client().get_run_url(), que LangSmith marcó como obsoleto
+        print(f"Traza: {run.get_url()}")
     except Exception as error:
         print(f"(no se pudo armar el enlace a la traza: {error}). Buscarla en LangSmith, proyecto '{proyecto}'.")
 

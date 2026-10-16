@@ -24,8 +24,10 @@ NOMBRE_COLECCION = "vuelos_smart_flight_assistant"
 # quedan entre 0.28 y 0.46, y las consultas fuera de catálogo entre 0.56 y 0.82. 0.50 queda en el medio de esa brecha.
 UMBRAL_DISTANCIA = 0.50
 
+# la clave se lee de la variable de entorno (cargada desde .env): pasarla directo con api_key quedó obsoleto en
+# ChromaDB, porque no se guarda con la configuración de la colección
 funcion_embedding = embedding_functions.OpenAIEmbeddingFunction(
-    api_key=OPENAI_API_KEY,
+    api_key_env_var="OPENAI_API_KEY",
     model_name=MODELO_EMBEDDING,
 )
 
@@ -36,10 +38,14 @@ def cargar_base_conocimiento(ruta: str = RUTA_BASE_CONOCIMIENTO):
         return json.load(f)
 
 
+# un único cliente de ChromaDB sobre la carpeta de persistencia, compartido por los scripts de la Entrega 2 y por
+# entrega_3/rag_pipeline.py, que lo importa en lugar de abrir otro
+cliente_chroma = chromadb.PersistentClient(path=RUTA_CHROMA)
+
+
 # Abre (o crea) la colección persistente de ChromaDB con similitud coseno
 def obtener_coleccion():
-    cliente = chromadb.PersistentClient(path=RUTA_CHROMA)
-    return cliente.get_or_create_collection(
+    return cliente_chroma.get_or_create_collection(
         name=NOMBRE_COLECCION,
         embedding_function=funcion_embedding,
         metadata={"hnsw:space": "cosine"},

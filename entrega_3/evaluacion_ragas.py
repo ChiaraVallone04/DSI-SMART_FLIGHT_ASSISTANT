@@ -8,6 +8,9 @@ Uso (desde la raíz del repo, con la base de la Entrega 2 y la colección de chu
     python entrega_3/evaluacion_ragas.py                     # los dos pipelines (C.2 y C.3)
     python entrega_3/evaluacion_ragas.py --pipeline basico   # solo el baseline (C.2)
     python entrega_3/evaluacion_ragas.py --pipeline avanzado
+
+Cada corrida reemplaza resultados_ragas.json. Los puntajes varían entre corridas (el evaluador es un LLM), así
+que si se vuelve a correr hay que actualizar también las tablas de la Parte C del informe.
 """
 import argparse
 import asyncio
@@ -49,17 +52,18 @@ METRICAS = ["faithfulness", "answer_relevancy",
 # las que RAGAS no puede calcular sin contexto recuperado
 METRICAS_CON_CONTEXTO = ["faithfulness", "context_precision", "context_recall"]
 
-# el evaluador usa el mismo modelo que el generador y los mismos embeddings que la base
-cliente = AsyncOpenAI()
-llm_evaluador = llm_factory("gpt-4o-mini", client=cliente)
-embeddings_evaluador = embedding_factory(
-    "openai", model="text-embedding-3-small", client=cliente)
-
-faithfulness = Faithfulness(llm=llm_evaluador)
-answer_relevancy = AnswerRelevancy(
-    llm=llm_evaluador, embeddings=embeddings_evaluador)
-context_precision = ContextPrecision(llm=llm_evaluador)
-context_recall = ContextRecall(llm=llm_evaluador)
+# el evaluador usa el mismo modelo que el generador y los mismos embeddings que la base. Se crea recién al evaluar
+# y no al importar el módulo, así importar este archivo para reusar sus funciones no abre clientes de OpenAI
+def crear_metricas():
+    cliente = AsyncOpenAI()
+    llm_evaluador = llm_factory("gpt-4o-mini", client=cliente)
+    embeddings_evaluador = embedding_factory("openai", model="text-embedding-3-small", client=cliente)
+    return {
+        "faithfulness": Faithfulness(llm=llm_evaluador),
+        "answer_relevancy": AnswerRelevancy(llm=llm_evaluador, embeddings=embeddings_evaluador),
+        "context_precision": ContextPrecision(llm=llm_evaluador),
+        "context_recall": ContextRecall(llm=llm_evaluador),
+    }
 
 
 def cargar_dataset():
@@ -67,7 +71,7 @@ def cargar_dataset():
         return json.load(f)
 
 
-async def evaluar_pregunta(item: dict, respuesta: str, contextos: list[str]):
+async def evaluar_pregunta(metricas: dict, item: dict, respuesta: str, contextos: list[str]):
     """Las 4 métricas de una pregunta.
 
     Faithfulness, Context Precision y Context Recall necesitan contexto: si el retriever no devolvió
@@ -76,14 +80,14 @@ async def evaluar_pregunta(item: dict, respuesta: str, contextos: list[str]):
     """
     pregunta, referencia = item["pregunta"], item["ground_truth"]
     puntajes = {metrica: math.nan for metrica in METRICAS_CON_CONTEXTO}
-    puntajes["answer_relevancy"] = (await answer_relevancy.ascore(
+    puntajes["answer_relevancy"] = (await metricas["answer_relevancy"].ascore(
         user_input=pregunta, response=respuesta)).value
     if contextos:
-        puntajes["faithfulness"] = (await faithfulness.ascore(
+        puntajes["faithfulness"] = (await metricas["faithfulness"].ascore(
             user_input=pregunta, response=respuesta, retrieved_contexts=contextos)).value
-        puntajes["context_precision"] = (await context_precision.ascore(
+        puntajes["context_precision"] = (await metricas["context_precision"].ascore(
             user_input=pregunta, reference=referencia, retrieved_contexts=contextos)).value
-        puntajes["context_recall"] = (await context_recall.ascore(
+        puntajes["context_recall"] = (await metricas["context_recall"].ascore(
             user_input=pregunta, retrieved_contexts=contextos, reference=referencia)).value
     return puntajes
 
@@ -93,7 +97,7 @@ def promedio(valores: list[float]):
     return {"promedio": sum(validos) / len(validos) if validos else math.nan, "n": len(validos)}
 
 
-async def evaluar_pipeline(nombre: str, dataset: list[dict]):
+async def evaluar_pipeline(nombre: str, dataset: list[dict], metricas: dict):
     chain = PIPELINES[nombre]
     filas = []
     for item in dataset:
@@ -104,7 +108,7 @@ async def evaluar_pipeline(nombre: str, dataset: list[dict]):
                 "entrega_3", "C", nombre]},
         )
         contextos = [d.page_content for d in resultado["context"]]
-        puntajes = await evaluar_pregunta(item, resultado["answer"], contextos)
+        puntajes = await evaluar_pregunta(metricas, item, resultado["answer"], contextos)
         filas.append({
             "id": item["id"],
             "tipo": item["tipo"],
@@ -160,20 +164,19 @@ def reemplazar_nan(valor):
 async def main(pipelines: list[str]):
     dataset = cargar_dataset()
     print(f"Golden dataset: {len(dataset)} preguntas ({RUTA_DATASET.name})")
+    metricas = crear_metricas()
 
     resultados = {}
     for nombre in pipelines:
         print(f"\nEvaluando pipeline '{nombre}'...")
-        resultados[nombre] = await evaluar_pipeline(nombre, dataset)
+        resultados[nombre] = await evaluar_pipeline(nombre, dataset, metricas)
 
     imprimir_resumen(resultados, dataset)
 
-    # se guardan junto al dataset: los resultados también son parte del entregable (C.2 y C.3)
-    anteriores = json.loads(RUTA_RESULTADOS.read_text(
-        encoding="utf-8")) if RUTA_RESULTADOS.exists() else {}
-    anteriores.update(resultados)
+    # se guardan junto al dataset: los resultados también son parte del entregable (C.2 y C.3). Cada corrida
+    # reemplaza el archivo entero, así nunca mezcla pipelines evaluados en corridas distintas
     RUTA_RESULTADOS.write_text(
-        json.dumps(reemplazar_nan(anteriores),
+        json.dumps(reemplazar_nan(resultados),
                    ensure_ascii=False, indent=2, allow_nan=False),
         encoding="utf-8",
     )
