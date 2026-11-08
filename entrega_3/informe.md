@@ -109,6 +109,10 @@ En los dos casos la respuesta cita solo la primera fuente, que es la correcta, y
 
 ### B.1 — Identificación de fallas
 
+Se documentan dos fallas distintas, con causas técnicas diferentes: la primera es del RAG básico (ruido dentro de cada ficha) y la segunda aparece al aplicarle chunking (chunk cortado).
+
+#### Falla 1 — Ruido en el contexto (RAG básico)
+
 **La falla.** El RAG básico de la Parte A no encuentra los **detalles puntuales** que están dentro de una ficha. Se probaron 8 preguntas cuya respuesta está escrita literalmente en una ficha del catálogo, y en 6 el retriever no llega a la ficha correcta, o llega pero por encima del umbral de aceptación (0.50). Los tres casos más claros, corridos con el chain completo de la Parte A:
 
 | Pregunta | Ficha que tiene la respuesta (texto literal) | Qué hizo el retriever | Respuesta final del RAG |
@@ -127,7 +131,38 @@ En los tres casos el sistema responde que no sabe algo que **sí está** en su b
 | `RUTA-GCI-JER` | 630 caracteres, 4 oraciones | oración 2 de 4 | 17% |
 | `RUTA-MAD-FCO` | 956 caracteres, 6 oraciones | oración 6 de 6 (la última) | 5% |
 
-El resto del párrafo es ruido respecto de la pregunta y "diluye" la señal del dato buscado. No es un problema del LLM —en estos casos el LLM ni llega a ver la ficha—, sino de **cómo está partido lo que se indexa**: la unidad de búsqueda es demasiado grande para preguntas puntuales. Por eso se descartan las otras dos causas: no hay chunk cortado, porque el RAG básico no corta los documentos, y no es "lost in the middle", porque el dato nunca llega al contexto del LLM. Esto es exactamente lo que ataca B.2: dividir cada ficha en fragmentos más chicos, para que cada detalle tenga un vector propio.
+El resto del párrafo es ruido respecto de la pregunta y "diluye" la señal del dato buscado. No es un problema del LLM —en estos casos el LLM ni llega a ver la ficha—, sino de **cómo está partido lo que se indexa**: la unidad de búsqueda es demasiado grande para preguntas puntuales. Por eso, para esta primera falla, se descartan las otras dos causas: no hay chunk cortado, porque el RAG básico no corta los documentos, y no es "lost in the middle", porque el dato nunca llega al contexto del LLM. Esto es exactamente lo que ataca B.2: dividir cada ficha en fragmentos más chicos, para que cada detalle tenga un vector propio.
+
+#### Falla 2 — Chunk cortado (aparece al aplicar el chunking de B.2)
+
+Se reproduce con `python entrega_3/rag_pipeline.py --parte b1`.
+
+**La falla.** El chunking de B.2 corta en fin de oración, así que no parte frases al medio. Pero cuando la oración siguiente empieza refiriéndose a la ruta sin nombrarla ("*La* cubren...", "*Es una ruta*...", "...en *esta ruta*"), el chunk nuevo queda con el dato y **sin su sujeto**: el fragmento ya no dice de qué ruta habla. De los 19 chunks que no son el primero de su ficha, 8 quedaron en esa situación (no nombran su ruta, ni sus ciudades, ni sus países). Cuando la pregunta sí nombra la ruta, el retriever no puede asociarla con ese fragmento:
+
+| Pregunta | Chunk con la respuesta | RAG básico (fichas) | Chunks 500/100 (B.2) | Chunks + juez (B.3) |
+|---|---|---|---|---|
+| *"¿Qué días hay más vuelos entre Dublín y Varsovia?"* | `RUTA-DUB-WAW#chunk2`: *"Es una ruta con fuerte componente migratorio y laboral entre ambos países. Predominan salidas matutinas y mayor demanda los martes y sábados."* | ✅ *"...los martes y sábados [RUTA-DUB-WAW]"* | ❌ *"No poseo información..."* | ❌ *"No poseo información..."* |
+| *"¿Hay clase business en los vuelos Madrid–Roma?"* | `RUTA-MAD-FCO#chunk3`: *"Solo se ofrece clase económica en esta ruta."* | ✅ *"Solo se ofrece clase económica..."* | ❌ *"No poseo información..."* | ✅ (el juez lo rescata) |
+
+El RAG básico responde bien las dos, porque la ficha completa tiene la ruta y el dato juntos. La falla la **introduce el chunking**: es el costo de la solución de B.2.
+
+**Causa técnica: chunk cortado.** El fragmento con la respuesta perdió la referencia a su ruta, y su vector ya no se parece a una pregunta que la nombra:
+
+- `RUTA-DUB-WAW#chunk2` queda en el **puesto 13 de 40** (distancia 0.600). La versión con chunks usa el top-4 con umbral 0.50, y el juez de B.3 solo ve el top-8, así que **ninguna de las dos lo llega a ver**. En su lugar recuperan `RUTA-DUB-WAW#chunk1`, que nombra la ruta pero no tiene los días (el juez le da 3/10). Como ningún candidato alcanza el puntaje mínimo, la respuesta es la frase de escape.
+- `RUTA-MAD-FCO#chunk3` (44 caracteres) queda en el **puesto 5** (0.487): afuera del top-4 de B.2, pero adentro del top-8 de B.3, donde el juez le asigna **10/10** y lo elige. El reranking mitiga esta falla cuando el chunk huérfano queda cerca, pero no cuando cae lejos, como en Dublín–Varsovia.
+
+**Comprobación de la causa.** Se repitió la búsqueda cambiando una sola cosa: a cada chunk se le antepuso el nombre de su ruta (por ejemplo, *"Ruta Dublín–Varsovia (DUB–WAW): Es una ruta con fuerte componente migratorio..."*). Se hizo en memoria, sin modificar la colección:
+
+| Chunk | Sin el nombre de la ruta | Con el nombre de la ruta antepuesto |
+|---|---|---|
+| `RUTA-DUB-WAW#chunk2` | puesto 13, distancia 0.600 | **puesto 1, distancia 0.283** |
+| `RUTA-MAD-FCO#chunk3` | puesto 5, distancia 0.487 | **puesto 1, distancia 0.329** |
+
+Con ese único cambio los dos pasan al primer puesto, lo que confirma que la causa es la pérdida del sujeto en el corte y no el tamaño del chunk ni el modelo de embeddings.
+
+**Diferencia con la Falla 1.** Son problemas opuestos de cómo está partido lo que se indexa. En la Falla 1 la unidad es **demasiado grande**: el dato está acompañado de mucho texto que no tiene que ver y su señal se diluye. En la Falla 2 el corte deja al dato **demasiado solo**: le falta el contexto mínimo (de qué ruta habla) para que una pregunta lo encuentre. El chunking de B.2 ataca la primera y, al mismo tiempo, crea la segunda.
+
+**Mitigación propuesta.** Agregar un encabezado de contexto a cada chunk al indexarlo (*contextual chunk header*): anteponer el nombre de la ruta, que ya está en los metadatos de la ficha, antes de calcular el embedding. La comprobación de arriba muestra el efecto esperado. No se aplicó a la colección `vuelos_smart_flight_assistant_chunks` porque cambia la base sobre la que se corre la evaluación de la Parte C: incorporarla implica re-indexar los chunks y volver a correr RAGAS.
 
 ### B.2 — Chunking con solapamiento
 

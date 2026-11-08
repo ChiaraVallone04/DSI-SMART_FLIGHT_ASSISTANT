@@ -2,16 +2,19 @@
 
 Uso:
     python entrega_3/rag_pipeline.py            # Parte A: matriz de resiliencia y trazabilidad
+    python entrega_3/rag_pipeline.py --parte b1 # Parte B.1: segunda falla (chunk cortado), básico vs chunks vs juez
     python entrega_3/rag_pipeline.py --parte b2 # Parte B.2: re-indexado con chunking y comparación
     python entrega_3/rag_pipeline.py --parte b3 # Parte B.3: reranking con LLM como juez
     python entrega_3/rag_pipeline.py --parte b4 # Parte B.4: una corrida trazada en LangSmith
 """
 import argparse
 import os
+import re
 import sys
 from pathlib import Path
 
 import chromadb
+import numpy as np
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
@@ -532,6 +535,62 @@ def ejecutar_parte_b3():
         print(f"  Respuesta: {resultado['answer']}")
 
 
+# B.1 (segunda falla) — CHUNK CORTADO
+# Al cortar las fichas (B.2), algunos chunks empiezan con una oración cuyo sujeto quedó en el chunk anterior
+# ("Es una ruta...", "Solo se ofrece ... en esta ruta"): el dato queda en un fragmento que no nombra su ruta, y una
+# pregunta que sí la nombra no lo encuentra. Con la ficha completa (RAG básico) el problema no existe.
+consultas_chunk_cortado = [
+    ("¿Qué días hay más vuelos entre Dublín y Varsovia?", "RUTA-DUB-WAW#chunk2"),
+    ("¿Hay clase business en los vuelos Madrid–Roma?", "RUTA-MAD-FCO#chunk3"),
+]
+
+
+def nombres_de_rutas():
+    """Nombre legible de cada ruta ("Dublín–Varsovia (DUB–WAW)"), tomado de la primera oración de su ficha."""
+    base = obtener_coleccion().get()
+    nombres = {}
+    for doc_id, texto in zip(base["ids"], base["documents"]):
+        encontrado = re.search(r"La ruta (.+?\(\w{3}–\w{3}\))", texto)
+        nombres[doc_id] = encontrado.group(1) if encontrado else doc_id
+    return nombres
+
+
+def ejecutar_parte_b1():
+    print("B.1 — Segunda falla: chunk cortado\n")
+    col_chunks = obtener_coleccion_chunks()
+    todos = col_chunks.get()
+
+    # control: los mismos chunks con el nombre de su ruta antepuesto, embebidos en memoria (la colección no se toca)
+    nombres = nombres_de_rutas()
+    con_encabezado = [f"Ruta {nombres[m['id_documento']]}: {t}" for t, m in zip(todos["documents"], todos["metadatas"])]
+    vectores = np.array(funcion_embedding(con_encabezado))
+    vectores /= np.linalg.norm(vectores, axis=1, keepdims=True)
+
+    for query, chunk_objetivo in consultas_chunk_cortado:
+        texto = todos["documents"][todos["ids"].index(chunk_objetivo)]
+        print(f"Pregunta: {query}")
+        print(f'Chunk con la respuesta ({chunk_objetivo}): "{texto}"')
+
+        for nombre, chain in [("básico (fichas)", rag_chain), ("chunks 500/100", rag_chain_chunks),
+                              ("chunks + juez", rag_chain_avanzado)]:
+            resultado = chain.invoke(query)
+            usados = [d.metadata.get("id_chunk", d.metadata["id"]) for d in resultado["context"]]
+            print(f"  {nombre:<16}: {resultado['answer']}")
+            print(f"  {'':<16}  contexto: {usados or 'vacío'}")
+
+        ranking = col_chunks.query(query_texts=[query], n_results=len(todos["ids"]))
+        puesto = ranking["ids"][0].index(chunk_objetivo) + 1
+        distancia = ranking["distances"][0][puesto - 1]
+        print(f"  Puesto del chunk entre los {len(todos['ids'])}: {puesto} (distancia {distancia:.3f}) "
+              f"— chunks usa el top-{K_DOCUMENTOS} con umbral {UMBRAL_DISTANCIA}; el juez ve el top-{K_CANDIDATOS}")
+
+        consulta = np.array(funcion_embedding([query])[0])
+        distancias = 1 - vectores @ (consulta / np.linalg.norm(consulta))
+        orden = [todos["ids"][i] for i in np.argsort(distancias)]
+        print(f"  Con el nombre de la ruta antepuesto: puesto {orden.index(chunk_objetivo) + 1} "
+              f"(distancia {distancias[todos['ids'].index(chunk_objetivo)]:.3f})\n")
+
+
 # B.4 — CAPTURA DE TRAZA (LangSmith)
 # LangChain manda la traza solo con las variables de entorno (en .env, que vector_db.py ya carga):
 #   LANGSMITH_TRACING=true | LANGSMITH_API_KEY=<clave> | LANGSMITH_PROJECT=<nombre del proyecto>
@@ -605,13 +664,15 @@ def ejecutar_parte_a():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Pipeline RAG de la Entrega 3")
-    parser.add_argument("--parte", choices=["a", "b2", "b3", "b4"], default="a",
-                        help="a: matriz de resiliencia y trazabilidad (default) | b2: chunking con solapamiento | "
-                             "b3: reranking con LLM juez | b4: corrida trazada en LangSmith")
+    parser.add_argument("--parte", choices=["a", "b1", "b2", "b3", "b4"], default="a",
+                        help="a: matriz de resiliencia y trazabilidad (default) | b1: segunda falla (chunk cortado) | "
+                             "b2: chunking con solapamiento | b3: reranking con LLM juez | b4: corrida trazada en LangSmith")
     parser.add_argument("--pregunta", default=PREGUNTA_B4, help="pregunta a trazar en la parte b4")
     argumentos = parser.parse_args()
 
-    if argumentos.parte == "b2":
+    if argumentos.parte == "b1":
+        ejecutar_parte_b1()
+    elif argumentos.parte == "b2":
         ejecutar_parte_b2()
     elif argumentos.parte == "b3":
         ejecutar_parte_b3()

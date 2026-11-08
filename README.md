@@ -43,6 +43,8 @@ Usa la misma base de la Entrega 2, así que primero hay que haberla construido (
 
 **`python entrega_3/rag_pipeline.py --parte b2`** (Parte B.2) — corta las fichas en chunks de 500 caracteres con 100 de solapamiento, los indexa en una colección nueva (`vuelos_smart_flight_assistant_chunks`, sin tocar la de la Entrega 2) y compara la recuperación contra la versión básica sobre las consultas de detalle de B.1.
 
+**`python entrega_3/rag_pipeline.py --parte b1`** (Parte B.1, segunda falla) — reproduce la falla de "chunk cortado": compara el RAG básico, el de chunks y el avanzado sobre preguntas cuya respuesta quedó en un chunk que no nombra su ruta, y prueba en memoria (sin modificar la colección) el efecto de anteponerle el nombre de la ruta. Requiere haber corrido antes `--parte b2` (colección de chunks).
+
 **`python entrega_3/rag_pipeline.py --parte b3`** (Parte B.3) — reranking con LLM como juez: trae 8 candidatos de la colección de chunks, los puntúa con `gpt-4o-mini` y pasa los 3 mejores a la generación. Requiere haber corrido antes `--parte b2` (colección de chunks).
 
 **`python entrega_3/rag_pipeline.py --parte b4`** (Parte B.4) — corre el chain avanzado con trazabilidad en LangSmith. Requiere `LANGSMITH_TRACING`, `LANGSMITH_API_KEY` y `LANGSMITH_PROJECT` en el `.env` (ver `.env.example`) y haber corrido antes `--parte b2` (colección de chunks).
