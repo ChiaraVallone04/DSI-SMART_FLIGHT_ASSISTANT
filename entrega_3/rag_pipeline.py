@@ -125,7 +125,9 @@ Debes cumplir estrictamente estas reglas:
 
 "{frase_escape}"
 
-6. Cita entre corchetes el ID de la ruta de la que sale cada dato (ej. [RUTA-MAD-FCO]).
+6. Responde primero, en una oración, exactamente lo que se pregunta. Agrega otros datos
+   del contexto solo si son necesarios para esa respuesta.
+7. Cita entre corchetes el ID de la ruta de la que sale cada dato (ej. [RUTA-MAD-FCO]).
 
 Contexto recuperado:
 {context}

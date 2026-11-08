@@ -408,4 +408,37 @@ El RAG avanzado es `rag_chain_avanzado` de la Parte B: chunks de 500/100, k = 8 
 
 **Acción técnica concreta.** Agregar al prompt de generación (`template` en `rag_pipeline.py`) una regla de foco: *"Responde primero, en una oración, exactamente lo que se pregunta. Agrega otros datos del contexto solo si son necesarios para esa respuesta."* Después, volver a correr `evaluacion_ragas.py` y comparar Answer Relevancy sin las preguntas de escape, verificando que Faithfulness no baje (la regla no debe empujar al modelo a inferir datos que no estén en el contexto). Para las preguntas de escape, que Answer Relevancy no puede medir por diseño, conviene evaluarlas con un criterio propio: que la respuesta sea exactamente `FRASE_ESCAPE`. El dataset se reutiliza en las Entregas 4 y 5, así que esa comparación va a poder repetirse sobre el mismo set.
 
+**Implementación y verificación.** La regla de foco se agregó al prompt de generación (`template` en `rag_pipeline.py`, regla 6: *"Responde primero, en una oración, exactamente lo que se pregunta. Agrega otros datos del contexto solo si son necesarios para esa respuesta."*). Como el prompt es compartido, afecta a los dos pipelines. Para aislar el efecto de la regla, se corrió RAGAS dos veces el mismo día, con el mismo código, las mismas versiones y las mismas 10 preguntas: una vez **sin** la regla y otra **con** la regla. Los resultados completos están en [`resultados_ragas_c4_antes.json`](resultados_ragas_c4_antes.json) y [`resultados_ragas_c4_despues.json`](resultados_ragas_c4_despues.json) (`python entrega_3/evaluacion_ragas.py --salida <archivo>`).
+
+*Answer Relevancy del avanzado, sin las preguntas de escape:*
+
+| ID | Sin la regla | Con la regla | Delta |
+|---|---|---|---|
+| S1 | 0.967 | 0.975 | +0.008 |
+| S2 | 0.991 | 0.989 | −0.002 |
+| S3 | 1.000 | 0.996 | −0.004 |
+| C1 | 0.769 | 0.769 | 0.000 |
+| C2 | 0.682 | 0.788 | **+0.106** |
+| C3 | 0.745 | 0.834 | **+0.089** |
+| I1 | 0.789 | 0.959 | **+0.170** |
+| I2 | 0.538 | 0.612 | **+0.074** |
+| **Promedio (8)** | **0.810** | **0.865** | **+0.055** |
+
+La mejora se concentra exactamente en las preguntas que este diagnóstico señalaba por divagar (I1, C3, C2 e I2); las simples, que ya respondían de forma directa, quedan igual. En I1, por ejemplo, la respuesta pasó de sumar operador, porcentaje de directos y duración a responder solo lo pedido: cuál es el vuelo más barato y cuánto cuesta. En el básico el efecto es menor (0.855 → 0.861), porque sus respuestas ya eran más acotadas.
+
+*Control de Faithfulness.* Era el riesgo anticipado: que la regla empujara al modelo a afirmar cosas que no están en el contexto. En el básico no pasó (0.961 → 1.000). En el avanzado, la corrida única bajó de 0.927 a 0.802, y para separar el efecto real del ruido del evaluador se volvió a puntuar **la misma respuesta** (sin regenerarla) tres veces, antes y después:
+
+| ID | Sin la regla (3 evaluaciones) | Con la regla (3 evaluaciones) |
+|---|---|---|
+| S1 | 1.0 / 1.0 / 1.0 | 0.5 / 1.0 / 0.5 |
+| C1 | 0.75 / 0.5 / 0.5 | 0.5 / 0.5 / 0.5 |
+| C2 | 0.75 / 0.833 / 0.833 | 0.75 / 1.0 / 0.75 |
+| I1 | 0.833 / 0.833 / 0.833 | 0.667 / 0.667 / 0.667 |
+| S2, S3, C3, I2 | 1.0 en las 3 | 1.0 en las 3 |
+| **Promedio (8)** | **0.903** | **0.833** |
+
+Una parte es ruido: la misma respuesta de S1 recibe 0.5, 1.0 y 0.5. Pero I1 baja de forma consistente, y la causa no es que la regla haga inventar datos. Faithfulness es una **proporción** (afirmaciones respaldadas sobre afirmaciones totales), y la respuesta de I1 tiene una sola afirmación que el evaluador trata como inferencia: que Bérgamo–Beauvais es "el vuelo de Milán a París" (la ficha dice que Bérgamo está "lejos del centro de Milán"). Sin la regla esa inferencia era 1 de 6 afirmaciones (0.833); con la regla, la respuesta es más corta y pasa a ser 1 de 3 (0.667). Se revisaron a mano las respuestas nuevas: todos los datos que dan están escritos en el contexto, y la regla no agregó ninguno. La matriz de resiliencia de la Parte A sigue pasando las 4 pruebas con la regla aplicada.
+
+**Conclusión.** La acción propuesta mejora la métrica diagnosticada (+0.055 en Answer Relevancy del avanzado, concentrado en las preguntas que divagaban), sin alucinaciones nuevas. El costo es una baja chica de Faithfulness en el avanzado, explicada por el efecto proporción. Para reducirlo, el paso siguiente sería pedirle al generador que, cuando la respuesta depende de una inferencia (como "Bérgamo = Milán"), la explicite con el dato que la respalda.
+
 **Limitación de la evaluación.** Con 10 preguntas, una sola respuesta mueve un promedio entre 0.05 y 0.1, y el evaluador (`gpt-4o-mini`) tiene variabilidad propia (ver S1 en C.2). Por eso las diferencias chicas, como la de Faithfulness, no deberían leerse como mejoras, y la de Context Precision tiene el alcance acotado que se explica en C.3.

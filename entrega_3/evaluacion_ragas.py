@@ -161,7 +161,7 @@ def reemplazar_nan(valor):
     return limpio
 
 
-async def main(pipelines: list[str]):
+async def main(pipelines: list[str], ruta_resultados: Path = RUTA_RESULTADOS):
     dataset = cargar_dataset()
     print(f"Golden dataset: {len(dataset)} preguntas ({RUTA_DATASET.name})")
     metricas = crear_metricas()
@@ -175,12 +175,12 @@ async def main(pipelines: list[str]):
 
     # se guardan junto al dataset: los resultados también son parte del entregable (C.2 y C.3). Cada corrida
     # reemplaza el archivo entero, así nunca mezcla pipelines evaluados en corridas distintas
-    RUTA_RESULTADOS.write_text(
+    ruta_resultados.write_text(
         json.dumps(reemplazar_nan(resultados),
                    ensure_ascii=False, indent=2, allow_nan=False),
         encoding="utf-8",
     )
-    print(f"\nResultados guardados en {RUTA_RESULTADOS.name}")
+    print(f"\nResultados guardados en {ruta_resultados.name}")
 
 
 if __name__ == "__main__":
@@ -188,7 +188,11 @@ if __name__ == "__main__":
         description="Evaluación RAGAS de la Entrega 3 (Parte C)")
     parser.add_argument(
         "--pipeline", choices=["basico", "avanzado", "ambos"], default="ambos")
+    # para guardar una corrida sin pisar resultados_ragas.json (ej. el antes/después de la mejora de C.4)
+    parser.add_argument(
+        "--salida", default=RUTA_RESULTADOS.name,
+        help="nombre del archivo de resultados, dentro de entrega_3/ (default: resultados_ragas.json)")
     argumentos = parser.parse_args()
     elegidos = list(PIPELINES) if argumentos.pipeline == "ambos" else [
         argumentos.pipeline]
-    asyncio.run(main(elegidos))
+    asyncio.run(main(elegidos, CARPETA / argumentos.salida))
