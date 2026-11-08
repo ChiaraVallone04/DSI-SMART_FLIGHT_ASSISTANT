@@ -27,6 +27,24 @@
         ]
     },
     {
+        "id": "S4",
+        "tipo": "simple",
+        "pregunta": "¿Cuántos vuelos tiene registrados la ruta Copenhague–Oslo y qué porcentaje es directo?",
+        "ground_truth": "La ruta Copenhague–Oslo tiene 3.378 vuelos registrados, con un 96% de vuelos directos de apenas 1h10-1h15.",
+        "rutas_esperadas": [
+            "RUTA-CPH-OSL"
+        ]
+    },
+    {
+        "id": "S5",
+        "tipo": "simple",
+        "pregunta": "¿Qué aerolíneas operan la ruta Atenas–Londres?",
+        "ground_truth": "La ruta Atenas–Londres la cubren principalmente British Airways y Aegean Airlines (la aerolínea de bandera griega), ambas tradicionales.",
+        "rutas_esperadas": [
+            "RUTA-ATH-LHR"
+        ]
+    },
+    {
         "id": "C1",
         "tipo": "compleja",
         "pregunta": "Para ir a Roma, ¿es más barato salir desde Madrid o desde Barcelona?",
@@ -56,6 +74,25 @@
         ]
     },
     {
+        "id": "C4",
+        "tipo": "compleja",
+        "pregunta": "¿Cuál es la ruta más cara del catálogo y a qué se debe un precio tan alto?",
+        "ground_truth": "La más cara es Antalya–Malmö: ningún vuelo baja de 2.255€ y la mediana es de 2.761€. El precio extremo probablemente refleja una bajísima frecuencia y una combinación de tramos poco optimizada, más que una demanda real de esa magnitud.",
+        "rutas_esperadas": [
+            "RUTA-AYT-MMX"
+        ]
+    },
+    {
+        "id": "C5",
+        "tipo": "compleja",
+        "pregunta": "Entre Barcelona–Madrid y Copenhague–Oslo, ¿cuál es el vuelo más corto y cuál tiene mayor porcentaje de vuelos directos?",
+        "ground_truth": "Copenhague–Oslo gana en las dos cosas: su vuelo directo dura 1h10-1h15 frente a 1h20-1h25 de Barcelona–Madrid, y tiene un 96% de vuelos directos frente al 81% de Barcelona–Madrid.",
+        "rutas_esperadas": [
+            "RUTA-CPH-OSL",
+            "RUTA-BCN-MAD"
+        ]
+    },
+    {
         "id": "E1",
         "tipo": "escape",
         "pregunta": "¿Cuánto sale un vuelo de Nueva York a Sídney?",
@@ -66,6 +103,13 @@
         "id": "E2",
         "tipo": "escape",
         "pregunta": "¿Cuánto cuesta despachar una valija extra en la ruta Madrid–Roma?",
+        "ground_truth": "No poseo información para responder a esta consulta con los datos disponibles.",
+        "rutas_esperadas": []
+    },
+    {
+        "id": "E3",
+        "tipo": "escape",
+        "pregunta": "¿Qué vuelos hay de Madrid a Berlín?",
         "ground_truth": "No poseo información para responder a esta consulta con los datos disponibles.",
         "rutas_esperadas": []
     },
@@ -85,6 +129,15 @@
         "ground_truth": "Es el puente aéreo Barcelona–Madrid: mayormente directo (81%), con apenas 1h20-1h25 de vuelo, dominado por Iberia (71% de los vuelos) seguida de Air Europa. Predominan las salidas por la mañana y hay fuerte demanda entre semana, consistente con viajes de trabajo de ida y vuelta en el día.",
         "rutas_esperadas": [
             "RUTA-BCN-MAD"
+        ]
+    },
+    {
+        "id": "I3",
+        "tipo": "informal",
+        "pregunta": "che, ¿hay algún vuelo barato de Roma a Bruselas para un finde largo?",
+        "ground_truth": "Sí: la ruta Roma Ciampino–Bruselas Charleroi, 100% operada por Ryanair y 100% directa, con una mediana de 37€, entre dos aeropuertos secundarios.",
+        "rutas_esperadas": [
+            "RUTA-CIA-CRL"
         ]
     }
 ]
