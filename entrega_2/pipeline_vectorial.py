@@ -14,8 +14,10 @@ if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY no encontrada en el entorno.")
 
 MODELO_EMBEDDING = "text-embedding-3-small"
-RUTA_BASE_CONOCIMIENTO = "base_conocimiento.json"
-DIR_INDICE = "faiss_index"
+# rutas ancladas a la raíz del repo (este archivo vive en entrega_2/; los datos, en data/)
+RAIZ_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RUTA_BASE_CONOCIMIENTO = os.path.join(RAIZ_REPO, "data", "base_conocimiento.json")
+DIR_INDICE = os.path.join(RAIZ_REPO, "data", "faiss_index")
 RUTA_INDICE = os.path.join(DIR_INDICE, "index.faiss")
 RUTA_IDS = os.path.join(DIR_INDICE, "ids.json")
 
@@ -49,7 +51,10 @@ def construir_indice(documentos: list[dict]) -> tuple[faiss.Index, list[str]]:
     indice.add(vectores)
 
     os.makedirs(DIR_INDICE, exist_ok=True)
-    faiss.write_index(indice, RUTA_INDICE)
+    # el archivo lo escribe Python y no faiss.write_index: la librería en C++ no abre en Windows rutas con
+    # caracteres no ASCII (ej. "Imágenes"). serialize_index genera los mismos bytes que write_index
+    with open(RUTA_INDICE, "wb") as f:
+        f.write(faiss.serialize_index(indice).tobytes())
     ids = [doc["id"] for doc in documentos]
     with open(RUTA_IDS, "w", encoding="utf-8") as f:
         json.dump(ids, f, ensure_ascii=False, indent=2)
@@ -65,7 +70,8 @@ def cargar_o_construir_indice(documentos: list[dict]) -> tuple[faiss.Index, list
             ids_persistidos = json.load(f)
         if ids_persistidos == ids_actuales:
             print(f"[disco] Índice recargado desde '{RUTA_INDICE}' — sin llamadas a la API de embeddings.")
-            return faiss.read_index(RUTA_INDICE), ids_persistidos
+            with open(RUTA_INDICE, "rb") as f:  # misma razón que en construir_indice
+                return faiss.deserialize_index(np.frombuffer(f.read(), dtype=np.uint8)), ids_persistidos
         print("[aviso] base_conocimiento.json cambió respecto al índice persistido — se regenera.")
 
     print(f"[api] No hay índice en disco — generando embeddings para {len(documentos)} documentos...")

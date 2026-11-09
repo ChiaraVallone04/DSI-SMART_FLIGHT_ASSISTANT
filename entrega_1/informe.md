@@ -345,7 +345,7 @@ El script funcional está organizado en módulos con responsabilidades específi
 - [`extraccion.py`](extraccion.py): arma la solicitud (vía `extraccion_comun.py`), llama a Gemini con salida estructurada y valida el JSON.
 - [`prompts.py`](prompts.py): `SYSTEM_INSTRUCTION_COT`/`SYSTEM_INSTRUCTION_ZERO_SHOT`, compartidos entre los dos proveedores.
 - [`extraccion_comun.py`](extraccion_comun.py): lógica común a ambos proveedores — valida la técnica, arma la solicitud de entrada y resuelve el año real de las fechas extraídas.
-- [`.env.example`](.env.example): documenta las variables requeridas sin credenciales.
+- [`.env.example`](../.env.example): documenta las variables requeridas sin credenciales.
 
 **Corrección Entrega 7-Sep — segundo proveedor (Anthropic/Claude)**
 

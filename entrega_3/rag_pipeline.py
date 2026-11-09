@@ -32,8 +32,8 @@ from langchain_openai import ChatOpenAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import BaseModel, Field
 
-# el script vive en entrega_3/, pero reutiliza vector_db.py de la raíz del repo (Entrega 2)
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# el script vive en entrega_3/, pero reutiliza vector_db.py de la Entrega 2 (entrega_2/)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "entrega_2"))
 
 from vector_db import (  # noqa: E402
     NOMBRE_COLECCION,
@@ -66,7 +66,8 @@ def verificar_base_entrega2():
     if cantidad == 0:
         raise RuntimeError(
             f"La colección '{NOMBRE_COLECCION}' no existe o está vacía en '{RUTA_CHROMA}'. "
-            "Construir primero la base de la Entrega 2: python vector_db.py y python etl_purga.py"
+            "Construir primero la base: python main.py ingest (o python entrega_2/vector_db.py y "
+            "python entrega_2/etl_purga.py)"
         )
 
 

@@ -92,7 +92,9 @@ Esto no invalida el ejercicio — al contrario, lo justifica. No es un error de 
 
 ### A.3 — `base_conocimiento.json`: documentos y justificación del esquema
 
-Código completo: [`base_conocimiento.json`](base_conocimiento.json) — **18 documentos** (mínimo pedido: 15).
+Código completo: [`base_conocimiento.json`](../data/base_conocimiento.json) — **18 documentos** (mínimo pedido: 15).
+
+> **Nota:** hoy el archivo tiene 23 registros: estos 18 más los 5 registros "sucios" que se agregaron a propósito en B.5 para probar el ETL de purga (que los normaliza o elimina y deja 21). Las cifras de A.1 a B.4 corresponden a los 18 documentos originales.
 
 **Qué representa cada documento.** Cada registro es el perfil de una **ruta** (un par de aeropuertos, ej. Madrid–Roma), no una fila individual del CSV ni un país. Se descartó "una fila = un documento" porque el dataset tiene 1.112.738 filas transaccionales (precio puntual de un vuelo puntual) — vectorizarlas todas repite el mismo error que A.1 diagnostica (desangre de tokens) y mezcla en la búsqueda semántica datos que son responsabilidad del SQL, no de la Base de Conocimiento. También se descartó "un país = un documento": España sola tiene 30 aeropuertos en el dataset repartidos en tres bloques con perfiles de viaje muy distintos (Península, Baleares, Canarias), así que agrupar por país mezclaría en un mismo párrafo viajes de negocios cortos con turismo de playa de larga distancia, perdiendo la coherencia semántica que necesita un embedding. El nivel "ruta" (par de aeropuertos) es el que ya usaba la Matriz de Intenciones de la Entrega 1 (`origen`, `destino` como códigos IATA), así que además queda directamente alineado con C.1.
 

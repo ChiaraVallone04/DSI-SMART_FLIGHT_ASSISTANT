@@ -1,5 +1,6 @@
 """Corre el mismo lote de casos de prueba contra Claude (Anthropic) y genera resultados_lote_claude_*.md."""
 import sys
+from pathlib import Path
 
 from pydantic import ValidationError
 
@@ -44,7 +45,8 @@ def main():
         lineas.append(
             f"| {fila[0]} | {fila[1]} | {fila[2]} | {fila[3]} | {fila[4]} |")
 
-    archivo_salida = f"resultados_lote_claude_{TECNICA.replace('-', '_')}.md"
+    # el resultado se guarda junto a este script (entrega_1/), se corra desde donde se corra
+    archivo_salida = Path(__file__).resolve().parent / f"resultados_lote_claude_{TECNICA.replace('-', '_')}.md"
     with open(archivo_salida, "w", encoding="utf-8") as archivo:
         archivo.write("\n".join(lineas) + "\n")
 

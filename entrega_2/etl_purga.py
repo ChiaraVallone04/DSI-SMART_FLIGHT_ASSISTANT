@@ -3,12 +3,12 @@ import json
 from dotenv import load_dotenv
 import numpy as np
 
-from vector_db import funcion_embedding, obtener_coleccion
+from vector_db import RUTA_BASE_CONOCIMIENTO, funcion_embedding, obtener_coleccion
 
 load_dotenv(override=True)
 
-# carga de datos sucios
-with open("base_conocimiento.json", "r", encoding="utf-8") as f:
+# carga de datos sucios (ruta absoluta: el script se puede correr desde cualquier carpeta)
+with open(RUTA_BASE_CONOCIMIENTO, "r", encoding="utf-8") as f:
     datos_sucios = json.load(f)
 
 # simulación de una segunda fuente de datos (ej. otro proveedor/scraper) que

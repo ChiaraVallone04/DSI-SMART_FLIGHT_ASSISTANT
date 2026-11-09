@@ -41,3 +41,9 @@ chroma_db/
 *.egg-info/
 .installed.cfg
 *.egg
+# TP Final: memoria del agente (SQLite), reservas y logs se generan al usar el sistema
+data/runtime/
+*.db
+*.db-shm
+*.db-wal
+.pytest_cache/
