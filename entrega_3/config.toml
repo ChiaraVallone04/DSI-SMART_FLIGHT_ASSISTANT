@@ -1,0 +1,32 @@
+# Configuración NO secreta del Smart Flight Assistant (TP Final).
+# Los secretos (claves de OpenAI y LangSmith) van en .env (ver .env.example).
+# Las rutas relativas se resuelven desde la raíz del repo.
+
+[llm]
+modelo = "gpt-4o-mini"            # router, agente ReAct, conversación y RAG
+temperatura = 0.0
+timeout_segundos = 30             # por cada llamada al LLM
+reintentos = 2
+
+[precios]                          # USD por millón de tokens de gpt-4o-mini, para estimar el costo
+input_por_millon = 0.15
+input_cache_por_millon = 0.075    # tokens servidos desde la caché de prompts de OpenAI
+output_por_millon = 0.60
+
+[agente]
+max_iteraciones = 5               # vueltas del nodo ReAct; la última se hace sin herramientas
+recursion_limit = 25              # red de seguridad de LangGraph (pasos por invocación)
+mensajes_en_contexto = 24         # cuántos mensajes de la memoria le llegan al modelo
+
+[api]
+host = "127.0.0.1"
+port = 8000
+timeout_consulta_segundos = 90    # tiempo máximo que la API espera al agente (después: HTTP 504)
+
+[guardrails]
+max_caracteres = 1500             # longitud máxima de una consulta
+
+[rutas]
+datos = "data"                    # base_conocimiento.json y chroma_db/ (Entregas 2 y 3)
+runtime = "data/runtime"          # memoria del agente, reservas y logs (se generan al usar el sistema)
+resultados = "resultados"         # matriz de validación, costos y prueba de reinicio
